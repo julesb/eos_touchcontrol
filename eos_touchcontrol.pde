@@ -17,33 +17,47 @@ void setup() {
   
   touchMap = new ArrayList<Integer>();
   
-  UIBase panel1 = new UIBase(0, 0, width-1, height-1, "panel1", UIBase.LAYOUT_HORIZONTAL);
+  UIBase panel1 = new UIBase(0, 0, width-1, height-1, "0.1", UIBase.LAYOUT_HORIZONTAL);
   panel1.borderColor = color(255,10, 10);
   
-  UIBase panel2 = new UIBase(0, 0, width-1, height-1, "panel2", UIBase.LAYOUT_VERTICAL);
+  UIBase panel2 = new UIBase(0, 0, width-1, height-1, "0.2", UIBase.LAYOUT_VERTICAL);
   panel2.borderColor = color(10, 255, 10);
   
-    UIBase panel21 = new UIBase(0, 0, width-1, height-1, "panel2.1", UIBase.LAYOUT_HORIZONTAL);
+    UIBase panel21 = new UIBase(0, 0, width-1, height-1, "0.2.1", UIBase.LAYOUT_HORIZONTAL);
     panel21.borderColor = color(255, 255, 10);
   
-    UIBase panel22 = new UIBase(0, 0, width-1, height-1, "panel2.2", UIBase.LAYOUT_HORIZONTAL);
+    UIBase panel22 = new UIBase(0, 0, width-1, height-1, "0.2.2", UIBase.LAYOUT_HORIZONTAL);
     panel22.borderColor = color(10, 255, 255);
   
-    UIBase panel23 = new UIBase(0, 0, width-1, height-1, "panel2.3", UIBase.LAYOUT_HORIZONTAL);
+    UIBase panel23 = new UIBase(0, 0, width-1, height-1, "0.2.3", UIBase.LAYOUT_HORIZONTAL);
     panel23.borderColor = color(255, 10, 255);
+
+      UIBase panel231 = new UIBase(0, 0, width-1, height-1, "0.2.3.1", UIBase.LAYOUT_HORIZONTAL);
+      panel231.borderColor = color(255, 10, 10);
+      UIBase panel232 = new UIBase(0, 0, width-1, height-1, "0.2.3.2", UIBase.LAYOUT_HORIZONTAL);
+      panel232.borderColor = color(255, 128, 10);
+      UIBase panel233 = new UIBase(0, 0, width-1, height-1, "0.2.3.3", UIBase.LAYOUT_HORIZONTAL);
+      panel233.borderColor = color(10, 255, 10);
+      UIBase panel234 = new UIBase(0, 0, width-1, height-1, "0.2.3.4", UIBase.LAYOUT_HORIZONTAL);
+      panel234.borderColor = color(10, 10, 255);
+
+      panel23.addChild(panel231);
+      panel23.addChild(panel232);
+      panel23.addChild(panel233);
+      panel23.addChild(panel234);
     
   panel2.addChild(panel21);
   panel2.addChild(panel22);
   panel2.addChild(panel23);
   
-  //UIBase panel3 = new UIBase(0, 0, width-1, height-1, "panel3", UIBase.LAYOUT_HORIZONTAL);
-  //panel3.borderColor = color(10, 10, 255);
+  UIBase panel3 = new UIBase(0, 0, width-1, height-1, "0.3", UIBase.LAYOUT_HORIZONTAL);
+  panel3.borderColor = color(10, 10, 255);
   
   int infoHeight = 100;
-  root = new UIBase(0, infoHeight, width-1, height-1 - infoHeight, "root", UIBase.LAYOUT_HORIZONTAL);
+  root = new UIBase(0, infoHeight, width-1, height-1 - infoHeight, "0", UIBase.LAYOUT_HORIZONTAL);
   root.addChild(panel1);
   root.addChild(panel2);
-  //root.addChild(panel3);
+  root.addChild(panel3);
   root.recalcLayout();
   
 }
@@ -52,25 +66,18 @@ void setup() {
 
 void draw() {
   background(0);
-  //if (touches.length > 0) {
-  //  root.update(touches);
-  //}
-  //if (touches.length == 0) {
-  //  root.flushTouches();
-  //}
   root.draw();
 
   fill(255);
   noStroke();
   textSize(SMALLTEXT);
-  text(frameRate, 7, 26);
-  //text(String.format("%.2f", frameRate), 20, 75);
+  text((int)frameRate, 7, 26);
   //drawTouches();
 }
 
-void touchStarted() {
-  println(String.format("=================\ntouch started: %s",  formatTouches()));
 
+void touchStarted() {
+  println(String.format("=================\ntouchStarted: %s",  formatTouches()));
   for (TouchEvent.Pointer p : touches) {
     if (!touchMap.contains(p.id)) {
       touchMap.add(p.id);
@@ -80,9 +87,9 @@ void touchStarted() {
   }
 }
 
+
 void touchEnded() {
-  println(String.format("touch ended:   %s",  formatTouches()));
-  
+  println(String.format("touchEnded:   %s",  formatTouches()));
   for (int i=touchMap.size()-1; i>=0; i--) {
     boolean found=false;
     for (TouchEvent.Pointer p : touches) {
@@ -92,7 +99,6 @@ void touchEnded() {
       }
     }
     if (!found) {
-      //println("touch ended: " + touchMap.get(i));
       println(String.format("\tid: %d", touchMap.get(i)));
       root.touchEnded(touchMap.get(i));
       touchMap.remove(i);
@@ -100,28 +106,10 @@ void touchEnded() {
   }
 }
 
-//void touchEnded(TouchEvent e) {
-//  for (int i=touchMap.size()-1; i>=0; i--) {
-//    boolean found=false;
-//    for (TouchEvent.Pointer p : touches) {
-//      if (touchMap.get(i)==p.id) {
-//        found=true;
-//        break;
-//      }
-//    }
-//    if (!found) {
-//      println("touch ended: " + touchMap.get(i));
-//      root.touchEnded(i);
-//      touchMap.remove(i);
-//    }
-//  }
-//}
-
 
 void drawTouches() {
   for (int i = 0; i < touches.length; i++) {
     float d = 100 * displayDensity;
-    //fill(0, 255 * touches[i].pressure);
     fill(255, 0, 0);
     ellipse(touches[i].x, touches[i].y, d, d);
     fill(20, 255, 20);
@@ -129,6 +117,15 @@ void drawTouches() {
   } 
 }
 
+
+TouchEvent.Pointer getTouchById(int id) {
+  for (TouchEvent.Pointer p : touches) {
+    if (p.id == id) {
+      return p;
+    }
+  }
+  return null;
+}
 
 
 
@@ -141,7 +138,7 @@ class UIBase {
   public int layout;
   public Rect bounds;
   public ArrayList<UIBase> children;
-  public int pad = 50;
+  public int pad = 30;
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
   String oscId;
@@ -153,8 +150,6 @@ class UIBase {
     this.layout = _layout;
     this.children = new ArrayList<UIBase>();
     this.touchIds = new ArrayList<Integer>();
-    //this.receivedTouches = new ArrayList();
-
   }
   
   
@@ -190,7 +185,9 @@ class UIBase {
           child.bounds.h = h;
           child.recalcLayout();
         }
-       
+      }
+      else if (this.layout == LAYOUT_GRID) {
+         // TODO 
       }
     }
   }
@@ -201,7 +198,8 @@ class UIBase {
     }
     for (int i=0; i<children.size(); i++) {
       UIBase c = children.get(i);
-      if (id < touches.length && c.bounds.containsPoint((int)touches[id].x, (int)touches[id].y)) {
+      if (id < touches.length &&
+          c.bounds.containsPoint((int)touches[id].x, (int)touches[id].y)) {
         c.touchStarted(id);
       }
     }
@@ -209,35 +207,12 @@ class UIBase {
     
   
   public void touchEnded(int id) {
-    for(int i=0; i < touchIds.size(); i++) {
-      if (touchIds.get(i) == id) {
-        touchIds.remove(i);
-      }
-      for (int c=0; c<children.size(); c++) {
-        children.get(c).touchEnded(id);
-      }
+     this.touchIds.remove(Integer.valueOf(id));
+    for (int c=0; c<children.size(); c++) {
+      this.children.get(c).touchEnded(id);
     }
   }
   
-  //public void flushTouches() {
-  //  for (int i=0; i<touchIds.size(); i++) {
-  //    touchIds.remove(i);
-  //  }
-  //  for (int c=0; c<children.size(); c++) {
-  //    children.get(c).flushTouches();
-  //  }
-  //}
-
-  //public void update(TouchEvent.Pointer[] t) {
-  //  float mx = t[0].x;
-  //  float my = t[0].y;
-    
-  //  if (! this.bounds.containsPoint(mx, my)) return;
-
-  //  // Do stuff
-  //  // ...
-  //}
-
 
   public void draw() {
     stroke(64);
@@ -246,32 +221,35 @@ class UIBase {
     stroke(this.borderColor);
     if (touchIds.size() > 0) {
       strokeWeight(10);
-      //println(String.format("%s: touches: %d", this.oscId, this.touchIds.size()));
     }
     else {
       strokeWeight(1);
     }
     rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h);
     fill(255);
-    String info = String.format("%s: touches: %d touchIdx: %s",
-                   this.oscId, this.touchIds.size(), formatTouchIds(this.touchIds));
-    textSize(SMALLTEXT);
-    text(info, this.bounds.x+7, this.bounds.y+26);
-    
+    String info = String.format("%s:  %s",
+                   this.oscId, formatTouchIds(this.touchIds));
+    //String info = String.format("%s: t: %d: %s",
+    //               this.oscId, this.touchIds.size(), formatTouchIds(this.touchIds));
+
+    //if (textWidth(info) < this.bounds.w) {
+      textSize(SMALLTEXT);
+      text(info, this.bounds.x+7, this.bounds.y+26);
+    //}
     if (children.size() == 0) {
       for (int i=0; i<touchIds.size(); i++) {
-        int tidx= touchIds.get(i);
-        if (tidx < touches.length) {
-          float px = touches[tidx].x;
-          float py = touches[tidx].y;
+        int tid = touchIds.get(i);
+        TouchEvent.Pointer p = getTouchById(tid);
+        if (p != null) {
+          float px = p.x;
+          float py = p.y;
           int d = 150;
           fill(borderColor);
           ellipse(px, py, d, d);
           
           textSize(LARGETEXT);
           fill(20, 255, 20);
-          text(touches[tidx].id, touches[tidx].x + d/2, touches[tidx].y - d/2);
-
+          text(p.id, p.x - d/2, p.y - d/2);
         }
       }
     }
@@ -282,9 +260,9 @@ class UIBase {
     }
 
   }
-   
   
-}
+} // End UIBase
+
 
 String formatTouchIds(ArrayList<Integer> touchIds) {
   if (touchIds == null || touchIds.isEmpty()) {
