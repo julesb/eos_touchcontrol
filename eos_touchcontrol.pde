@@ -11,6 +11,7 @@ int SMALLTEXT;
 void setup() {
   fullScreen();
   orientation(LANDSCAPE);
+  frameRate(60);
   LARGETEXT = (int)(36 * displayDensity);
   SMALLTEXT = (int)(24 * displayDensity);
   
@@ -18,11 +19,12 @@ void setup() {
   
   touchMap = new ArrayList<Integer>();
   
-  UIBase panel1 = new UIBase(0, 0, width-1, height-1, "0.1", UIBase.LAYOUT_HORIZONTAL);
-  panel1.borderColor = color(255,10, 10);
+  XYPad panel1 = new XYPad(0, 0, width-1, height-1, "0.1", XYPad.CARTESIAN);
+  //UIBase panel1 = new UIBase(0, 0, width-1, height-1, "0.1", UIBase.LAYOUT_HORIZONTAL);
+  //panel1.borderColor = color(64);
   
   UIBase panel2 = new UIBase(0, 0, width-1, height-1, "0.2", UIBase.LAYOUT_VERTICAL);
-  panel2.borderColor = color(10, 255, 10);
+  //panel2.borderColor = color(10, 255, 10);
   
     UIBase panel21 = new UIBase(0, 0, width-1, height-1, "0.2.1", UIBase.LAYOUT_HORIZONTAL);
     panel21.borderColor = color(255, 255, 10);
@@ -45,38 +47,40 @@ void setup() {
       //panel21.addChild(panel213);
       //panel21.addChild(panel214);
 
-    UIBase panel22 = new UIBase(0, 0, width-1, height-1, "0.2.2", UIBase.LAYOUT_HORIZONTAL);
-    panel22.borderColor = color(10, 255, 255);
+
+    //UIBase panel22 = new UIBase(0, 0, width-1, height-1, "0.2.2", UIBase.LAYOUT_HORIZONTAL);
+    UIBase panel22 = makeButtonGrid(4, 6, "g1");
+    //panel22.borderColor = color(10, 255, 255);
   
-    UIBase panel23 = new UIBase(0, 0, width-1, height-1, "0.2.3", UIBase.LAYOUT_HORIZONTAL);
-    panel23.borderColor = color(255, 10, 255);
+    //UIBase panel23 = new UIBase(0, 0, width-1, height-1, "0.2.3", UIBase.LAYOUT_HORIZONTAL);
+    //panel23.borderColor = color(255, 10, 255);
 
-      UIBase panel231 = new UIBase(0, 0, width-1, height-1, "0.2.3.1", UIBase.LAYOUT_HORIZONTAL);
-      panel231.borderColor = color(255, 10, 10);
-      UIBase panel232 = new UIBase(0, 0, width-1, height-1, "0.2.3.2", UIBase.LAYOUT_HORIZONTAL);
-      panel232.borderColor = color(255, 128, 10);
-      UIBase panel233 = new UIBase(0, 0, width-1, height-1, "0.2.3.3", UIBase.LAYOUT_HORIZONTAL);
-      panel233.borderColor = color(10, 255, 10);
-      UIBase panel234 = new UIBase(0, 0, width-1, height-1, "0.2.3.4", UIBase.LAYOUT_HORIZONTAL);
-      panel234.borderColor = color(10, 10, 255);
+    //  UIBase panel231 = new UIBase(0, 0, width-1, height-1, "0.2.3.1", UIBase.LAYOUT_HORIZONTAL);
+    //  panel231.borderColor = color(255, 10, 10);
+    //  UIBase panel232 = new UIBase(0, 0, width-1, height-1, "0.2.3.2", UIBase.LAYOUT_HORIZONTAL);
+    //  panel232.borderColor = color(255, 128, 10);
+    //  UIBase panel233 = new UIBase(0, 0, width-1, height-1, "0.2.3.3", UIBase.LAYOUT_HORIZONTAL);
+    //  panel233.borderColor = color(10, 255, 10);
+    //  UIBase panel234 = new UIBase(0, 0, width-1, height-1, "0.2.3.4", UIBase.LAYOUT_HORIZONTAL);
+    //  panel234.borderColor = color(10, 10, 255);
 
-      panel23.addChild(panel231);
-      panel23.addChild(panel232);
-      panel23.addChild(panel233);
-      panel23.addChild(panel234);
+    //  panel23.addChild(panel231);
+    //  panel23.addChild(panel232);
+    //  panel23.addChild(panel233);
+    //  panel23.addChild(panel234);
 
   panel2.addChild(panel21);
   panel2.addChild(panel22);
-  panel2.addChild(panel23);
+  //panel2.addChild(panel23);
 
-  UIBase panel3 = new UIBase(0, 0, width-1, height-1, "0.3", UIBase.LAYOUT_HORIZONTAL);
-  panel3.borderColor = color(10, 10, 255);
+  //UIBase panel3 = new UIBase(0, 0, width-1, height-1, "0.3", UIBase.LAYOUT_HORIZONTAL);
+  //panel3.borderColor = color(10, 10, 255);
   
   int infoHeight = 100;
   root = new UIBase(0, infoHeight, width-1, height-1 - infoHeight, "0", UIBase.LAYOUT_HORIZONTAL);
   root.addChild(panel1);
   root.addChild(panel2);
-  root.addChild(panel3);
+  //root.addChild(panel3);
   root.recalcLayout();
   
 }
@@ -154,6 +158,18 @@ TouchEvent.Pointer getTouchById(int id) {
 
 
 
+UIBase makeButtonGrid(int rows, int cols, String oscId) {
+  UIBase grid = new UIBase(0, 0, width-1, height-1, oscId, UIBase.LAYOUT_GRID);
+  int numchild = rows * cols;
+  grid.gridRows = rows;
+  grid.gridCols = cols;
+  for (int i=0; i < numchild; i++) {
+    Button b = new Button(0, 0, width-1, height-1, String.format("%sb%d", oscId, i), Button.TOGGLE);
+    grid.addChild(b);
+  }
+  return grid;
+}
+
 
 class UIBase {
   public int mode;
@@ -164,13 +180,14 @@ class UIBase {
   public int layout;
   public Rect bounds;
   public ArrayList<UIBase> children;
-  public int pad = 30;
+  public int pad = 16;
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
   String oscId;
-  private ArrayList<Integer> touchIds;
+  ArrayList<Integer> touchIds;
   PVector[] touchPositions = new PVector[10];
-
+  int gridRows = 4;
+  int gridCols = 4;
 
   public UIBase(int _x, int _y, int _w, int _h, String _oscId, int _layout ) {
     this.bounds = new Rect(_x, _y, _w, _h);
@@ -179,13 +196,13 @@ class UIBase {
     this.children = new ArrayList<UIBase>();
     this.touchIds = new ArrayList<Integer>();
   }
-  
-  
+
+
   public void addChild(UIBase child) {
     children.add(child);
   }
-  
-  
+
+
   void recalcLayout() {
     float w, h;
     int nchild = this.children.size();
@@ -215,7 +232,21 @@ class UIBase {
         }
       }
       else if (this.layout == LAYOUT_GRID) {
-         // TODO 
+        int numCells = gridRows * gridCols;
+        w = (this.bounds.w - pad*(gridCols+1)) / gridCols;
+        h = (this.bounds.h - pad*(gridRows+1)) / gridRows;
+        for (int i=0; i<nchild; i++) {
+          if (i >= numCells) {
+            break;
+          }
+          float x = this.bounds.x + pad + (i % gridCols) * (w+pad);
+          float y = this.bounds.y + pad + (i / gridCols) * (h+pad);
+          UIBase child = children.get(i);
+          child.bounds.x = x;
+          child.bounds.y = y;
+          child.bounds.w = w;
+          child.bounds.h = h;
+        }
       }
     }
   }
@@ -277,29 +308,31 @@ class UIBase {
     }
   }
 
-  public void draw() {
-    stroke(64);
+  public void drawBounds() {
+    stroke(borderColor);
     noFill();
-    // bounds
-    stroke(this.borderColor);
-    if (touchIds.size() > 0) {
+    rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+
+  }
+
+  public void draw() {
+    if (touchIds.size() > 0 && children.size() == 0) {
       strokeWeight(10);
     }
     else {
       strokeWeight(1);
     }
-    rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
-    fill(255);
-    String info = String.format("%s:  %s",
-                   this.oscId, formatTouchIds(this.touchIds));
-    //String info = String.format("%s: t: %d: %s",
-    //               this.oscId, this.touchIds.size(), formatTouchIds(this.touchIds));
+    drawBounds();
 
-    //if (textWidth(info) < this.bounds.w) {
+    if (children.size() == 0) {
+      fill(255);
+      String info = String.format("%s:  %s",
+                     this.oscId, formatTouchIds(this.touchIds));
+      //String info = String.format("%s: t: %d: %s",
+      //               this.oscId, this.touchIds.size(), formatTouchIds(this.touchIds));
       textSize(SMALLTEXT);
       text(info, this.bounds.x+7, this.bounds.y+26);
-    //}
-    if (children.size() == 0) {
+
       for (int i=0; i<touchIds.size(); i++) {
         int tid = touchIds.get(i);
         TouchEvent.Pointer p = getTouchById(tid);
@@ -319,7 +352,7 @@ class UIBase {
             stroke(255);
             line(px, this.bounds.y, px, this.bounds.y+this.bounds.h-1);
             line(this.bounds.x, py, this.bounds.x+this.bounds.w-1, py);
-        }
+          }
 
           textSize(LARGETEXT);
           String touchinfo;
@@ -401,6 +434,81 @@ class Button extends UIBase {
       }
       super.draw();
     }
+}
+
+
+class XYPad extends UIBase {
+  public static final int CARTESIAN = 0;
+  public static final int POLAR = 0;
+  int coordSys = CARTESIAN;
+  PVector pos;
+  float tx, ty, ta, tr;
+
+  public XYPad(int _x, int _y, int _w, int _h, String _oscId, int _coordSys) {
+    super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
+    this.coordSys = _coordSys;
+    tx = 0.0;
+    ty = 0.0;
+    ta = 0.0;
+    tr = 1.0;
+    pos = new PVector(0,0);
+  }
+
+
+  public void draw() {
+    float dim = min(this.bounds.w, this.bounds.h) - pad*2;
+    float ctlx = this.bounds.x + pad;
+    float ctly = this.bounds.y+this.bounds.h - dim - pad;
+
+    strokeWeight(1);
+    drawBounds();
+    stroke(128);
+    noFill();
+    rect(ctlx, ctly, dim, dim);
+
+    PVector p;
+    if (touchIds.size() > 0) {
+      int id = touchIds.get(0);
+      p = touchPositions[id];
+      if (p == null) {
+        print("no position");
+        return;
+      }
+      this.pos.x = p.x;
+      this.pos.y = p.y;
+
+      tx = (p.x - this.bounds.x) / this.bounds.w;
+      ty = 1.0 - (p.y - this.bounds.y) / this.bounds.h;
+      tx = max(0, min(1.0, tx));
+      ty = max(0, min(1.0, ty));
+    }
+    else {
+      p = this.pos;
+    }
+
+    if (this.bounds.containsPoint(p.x, p.y)) {
+      // crosshair
+      strokeWeight(1);
+      stroke(255);
+      line(p.x, ctly, p.x, ctly+dim-1);
+      line(ctlx, p.y, ctlx+dim-1, p.y);
+    }
+
+    float dotx = max(ctlx, min(ctlx+dim, p.x));
+    float doty = max(ctly, min(ctly+dim, p.y));
+    // touch point
+    stroke(255,255,10);
+    strokeWeight(4);
+    noFill();
+    ellipse(dotx, doty, 100, 100);
+
+    fill(255);
+    noStroke();
+    textSize(LARGETEXT);
+    text(String.format("[%.2f, %.2f]", tx, ty), this.bounds.x+10, this.bounds.y+40);
+
+  }
+
 }
 
 
