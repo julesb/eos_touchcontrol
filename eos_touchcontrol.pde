@@ -9,9 +9,9 @@ int SMALLTEXT;
 
 
 void setup() {
-  fullScreen();
+  fullScreen(P3D, 1);
   orientation(LANDSCAPE);
-  frameRate(60);
+  frameRate(120);
   LARGETEXT = (int)(36 * displayDensity);
   SMALLTEXT = (int)(24 * displayDensity);
   
@@ -27,7 +27,7 @@ void setup() {
   //panel2.borderColor = color(10, 255, 10);
   
     UIBase panel21 = new UIBase(0, 0, width-1, height-1, "0.2.1", UIBase.LAYOUT_HORIZONTAL);
-    panel21.borderColor = color(255, 255, 10);
+    //panel21.borderColor = color(255, 255, 10);
 
       Button button1 = new Button(0, 0, width-1, height-1, "Button1", Button.TOUCH_DOWN);
       button1.borderColor = color(255, 10, 10);
@@ -76,7 +76,7 @@ void setup() {
   //UIBase panel3 = new UIBase(0, 0, width-1, height-1, "0.3", UIBase.LAYOUT_HORIZONTAL);
   //panel3.borderColor = color(10, 10, 255);
   
-  int infoHeight = 100;
+  int infoHeight = 50;
   root = new UIBase(0, infoHeight, width-1, height-1 - infoHeight, "0", UIBase.LAYOUT_HORIZONTAL);
   root.addChild(panel1);
   root.addChild(panel2);
@@ -392,6 +392,7 @@ class Button extends UIBase {
     public static final int TOUCH_DOWN = 0; // triggers on touch
     public static final int TOUCH_UP   = 1; // triggers on touch
     public static final int TOGGLE     = 2; // triggers on touch, toggle state
+    int recentTouchCountdown = 0;
 
     int buttonMode = 0;
     Boolean toggleState = false;
@@ -409,7 +410,14 @@ class Button extends UIBase {
       }
       if (buttonMode == TOUCH_DOWN || buttonMode == TOGGLE) {
         // Trigger button action
+        // TODO: OSC send
         print(String.format("%s pressed (TOUCH_DOWN)", this.oscId));
+
+        // no need to track the touch any more
+        touchPositions[id] = null;
+        touchIds.remove(Integer.valueOf(id));
+
+        recentTouchCountdown = 64;
       }
     }
 
@@ -419,7 +427,9 @@ class Button extends UIBase {
         if (p != null) {
           if (buttonMode == TOUCH_UP && this.bounds.containsPoint(p.x, p.y)) {
             // Trigger button action
+            // TODO: OSC send
             print(String.format("%s pressed (TOUCH_UP) id=%d", this.oscId, id));
+            recentTouchCountdown = 64;
           }
         }
         super.touchEnded(id);
@@ -429,11 +439,35 @@ class Button extends UIBase {
     public void draw() {
       if (this.buttonMode == TOGGLE && this.toggleState) {
         noStroke();
-        fill(64);
+        fill(borderColor);
         rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+      }
+      else if (recentTouchCountdown > 0) {
+        fill(borderColor, recentTouchCountdown*4);
+        noStroke();
+        rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+        recentTouchCountdown-=1;
       }
       super.draw();
     }
+}
+
+class Slider {
+  // TODO
+}
+
+class TabContainer extends UIBase {
+  int activeTabIndex = 0;
+
+  public TabContainer() {
+    super(0, 0, 100, 100, "", UIBase.LAYOUT_NONE);
+
+  }
+  // TODO
+}
+
+class HeliosControl {
+  // TODO - actually shouldnt be a class, just a function `UIBase makeHeliosControl(...)`
 }
 
 
@@ -443,6 +477,7 @@ class XYPad extends UIBase {
   int coordSys = CARTESIAN;
   PVector pos;
   float tx, ty, ta, tr;
+  float ptx, pty;
 
   public XYPad(int _x, int _y, int _w, int _h, String _oscId, int _coordSys) {
     super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
@@ -459,6 +494,8 @@ class XYPad extends UIBase {
     float dim = min(this.bounds.w, this.bounds.h) - pad*2;
     float ctlx = this.bounds.x + pad;
     float ctly = this.bounds.y+this.bounds.h - dim - pad;
+    float ctlcx = ctlx + dim/2;
+    float ctlcy = ctly + dim/2;
 
     strokeWeight(1);
     drawBounds();
@@ -486,21 +523,40 @@ class XYPad extends UIBase {
       p = this.pos;
     }
 
+    // crosshair
     if (this.bounds.containsPoint(p.x, p.y)) {
-      // crosshair
       strokeWeight(1);
-      stroke(255);
+      stroke(10, 255, 255);
       line(p.x, ctly, p.x, ctly+dim-1);
       line(ctlx, p.y, ctlx+dim-1, p.y);
     }
 
     float dotx = max(ctlx, min(ctlx+dim, p.x));
     float doty = max(ctly, min(ctly+dim, p.y));
+
     // touch point
-    stroke(255,255,10);
-    strokeWeight(4);
+    noStroke();
+    fill(255,255,10);
+    if (touchIds.size() > 0) {
+      ellipse(dotx, doty, 150, 150);
+    }
+    else {
+      ellipse(dotx, doty, 20, 20);
+    }
+
+    // unit circle
+    strokeWeight(1);
+    stroke(128);
     noFill();
-    ellipse(dotx, doty, 100, 100);
+    ellipse(ctlx+dim/2, ctly+dim/2, dim, dim);
+    line(ctlx+dim/2, ctly, ctlx+dim/2, ctly+dim);
+    line(ctlx, ctly+dim/2, ctlx+dim, ctly+dim/2);
+
+    PVector pn = new PVector(p.x, p.y).sub(new PVector(ctlcx, ctlcy)).normalize().mult(dim/2);
+    // angle radius line
+    strokeWeight(4);
+    stroke(255,255,10);
+    line(ctlcx, ctlcy, ctlcx+pn.x, ctlcy+pn.y);
 
     fill(255);
     noStroke();
