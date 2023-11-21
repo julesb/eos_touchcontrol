@@ -1,6 +1,7 @@
 
 import android.view.MotionEvent;
 
+
 UIBase root;
 ArrayList<Integer> touchMap;
 
@@ -11,7 +12,7 @@ int SMALLTEXT;
 void setup() {
   fullScreen(P3D, 1);
   orientation(LANDSCAPE);
-  frameRate(120);
+  frameRate(60);
   LARGETEXT = (int)(36 * displayDensity);
   SMALLTEXT = (int)(24 * displayDensity);
   
@@ -19,70 +20,41 @@ void setup() {
   
   touchMap = new ArrayList<Integer>();
   
-  XYPad panel1 = new XYPad(0, 0, width-1, height-1, "0.1", XYPad.CARTESIAN);
-  //UIBase panel1 = new UIBase(0, 0, width-1, height-1, "0.1", UIBase.LAYOUT_HORIZONTAL);
-  //panel1.borderColor = color(64);
-  
-  UIBase panel2 = new UIBase(0, 0, width-1, height-1, "0.2", UIBase.LAYOUT_VERTICAL);
-  //panel2.borderColor = color(10, 255, 10);
-  
-    UIBase panel21 = new UIBase(0, 0, width-1, height-1, "0.2.1", UIBase.LAYOUT_HORIZONTAL);
+  XYPad xypad1 = new XYPad(0, 0, 100, 100, "xypad1", XYPad.CARTESIAN);
+  //xypad1.borderColor = color(10,255,10);
+
+  UIBase panel1 = new UIBase(0, 0, 100, 100, "panel1", UIBase.LAYOUT_VERTICAL);
+  //panel1.borderColor = color(10, 10, 255);
+
+    UIBase buttonPanel1 = new UIBase(0, 0, 100, 100, "buttonpanel1", UIBase.LAYOUT_HORIZONTAL);
     //panel21.borderColor = color(255, 255, 10);
 
-      Button button1 = new Button(0, 0, width-1, height-1, "Button1", Button.TOUCH_DOWN);
+      Button button1 = new Button("Button1", Button.TOUCH_DOWN);
       button1.borderColor = color(255, 10, 10);
-      Button button2 = new Button(0, 0, width-1, height-1, "Button2", Button.TOUCH_UP);
+      Button button2 = new Button("Button2", Button.TOUCH_UP);
       button2.borderColor = color(10, 255, 10);
-      Button button3 = new Button(0, 0, width-1, height-1, "Button3", Button.TOGGLE);
+      Button button3 = new Button("Button3", Button.TOGGLE);
       button3.borderColor = color(10, 0, 255);
-      //UIBase panel213 = new UIBase(0, 0, width-1, height-1, "0.2.1.3", UIBase.LAYOUT_HORIZONTAL);
-      //panel213.borderColor = color(10, 255, 10);
-      //UIBase panel214 = new UIBase(0, 0, width-1, height-1, "0.2.1.4", UIBase.LAYOUT_HORIZONTAL);
-      //panel214.borderColor = color(10, 10, 255);
 
-      panel21.addChild(button1);
-      panel21.addChild(button2);
-      panel21.addChild(button3);
+      buttonPanel1.addChild(button1);
+      buttonPanel1.addChild(button2);
+      buttonPanel1.addChild(button3);
 
-      //panel21.addChild(panel213);
-      //panel21.addChild(panel214);
+    UIBase buttonGrid1 = makeButtonGrid(4, 6, "g1");
 
+  panel1.addChild(buttonPanel1);
+  panel1.addChild(buttonGrid1);
 
-    //UIBase panel22 = new UIBase(0, 0, width-1, height-1, "0.2.2", UIBase.LAYOUT_HORIZONTAL);
-    UIBase panel22 = makeButtonGrid(4, 6, "g1");
-    //panel22.borderColor = color(10, 255, 255);
-  
-    //UIBase panel23 = new UIBase(0, 0, width-1, height-1, "0.2.3", UIBase.LAYOUT_HORIZONTAL);
-    //panel23.borderColor = color(255, 10, 255);
-
-    //  UIBase panel231 = new UIBase(0, 0, width-1, height-1, "0.2.3.1", UIBase.LAYOUT_HORIZONTAL);
-    //  panel231.borderColor = color(255, 10, 10);
-    //  UIBase panel232 = new UIBase(0, 0, width-1, height-1, "0.2.3.2", UIBase.LAYOUT_HORIZONTAL);
-    //  panel232.borderColor = color(255, 128, 10);
-    //  UIBase panel233 = new UIBase(0, 0, width-1, height-1, "0.2.3.3", UIBase.LAYOUT_HORIZONTAL);
-    //  panel233.borderColor = color(10, 255, 10);
-    //  UIBase panel234 = new UIBase(0, 0, width-1, height-1, "0.2.3.4", UIBase.LAYOUT_HORIZONTAL);
-    //  panel234.borderColor = color(10, 10, 255);
-
-    //  panel23.addChild(panel231);
-    //  panel23.addChild(panel232);
-    //  panel23.addChild(panel233);
-    //  panel23.addChild(panel234);
-
-  panel2.addChild(panel21);
-  panel2.addChild(panel22);
-  //panel2.addChild(panel23);
-
-  //UIBase panel3 = new UIBase(0, 0, width-1, height-1, "0.3", UIBase.LAYOUT_HORIZONTAL);
-  //panel3.borderColor = color(10, 10, 255);
-  
   int infoHeight = 50;
-  root = new UIBase(0, infoHeight, width-1, height-1 - infoHeight, "0", UIBase.LAYOUT_HORIZONTAL);
-  root.addChild(panel1);
-  root.addChild(panel2);
-  //root.addChild(panel3);
+
+  TabContainer tabRoot = new TabContainer(0, infoHeight, 100, 100);
+  tabRoot.borderColor = color(255, 10, 255);
+  tabRoot.addChild(xypad1);
+  tabRoot.addChild(panel1);
+
+  root = new UIBase(1, infoHeight, width-1, height-1 - infoHeight, "root", UIBase.LAYOUT_HORIZONTAL);
+  root.addChild(tabRoot);
   root.recalcLayout();
-  
 }
 
 
@@ -189,7 +161,7 @@ class UIBase {
   int gridRows = 4;
   int gridCols = 4;
 
-  public UIBase(int _x, int _y, int _w, int _h, String _oscId, int _layout ) {
+  public UIBase(float _x, float _y, float _w, float _h, String _oscId, int _layout ) {
     this.bounds = new Rect(_x, _y, _w, _h);
     this.oscId = _oscId;
     this.layout = _layout;
@@ -197,7 +169,11 @@ class UIBase {
     this.touchIds = new ArrayList<Integer>();
   }
 
-
+  public UIBase(String _oscId, int _layout ) {
+    this(0, 0, 100, 100, _oscId, _layout);
+  }
+  
+  
   public void addChild(UIBase child) {
     children.add(child);
   }
@@ -389,81 +365,166 @@ class UIBase {
 
 
 class Button extends UIBase {
-    public static final int TOUCH_DOWN = 0; // triggers on touch
-    public static final int TOUCH_UP   = 1; // triggers on touch
-    public static final int TOGGLE     = 2; // triggers on touch, toggle state
-    int recentTouchCountdown = 0;
+  public static final int TOUCH_DOWN = 0; // triggers on touch
+  public static final int TOUCH_UP   = 1; // triggers on touch
+  public static final int TOGGLE     = 2; // triggers on touch, toggle state
+  int recentTouchCountdown = 0;
 
-    int buttonMode = 0;
-    Boolean toggleState = false;
+  int buttonMode = 0;
+  Boolean toggleState = false;
 
-    public Button(int _x, int _y, int _w, int _h, String _oscId, int _mode) {
-      super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
-      this.buttonMode = _mode;
+  public Button(int _x, int _y, int _w, int _h, String _oscId, int _mode) {
+    super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
+    this.buttonMode = _mode;
+  }
+
+  public Button(String _oscId, int _mode) {
+    super(0, 0, 100, 100, _oscId, UIBase.LAYOUT_NONE);
+    this.buttonMode = _mode;
+  }
+
+  @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    if (buttonMode == TOGGLE) {
+      toggleState = ! toggleState;
     }
+    if (buttonMode == TOUCH_DOWN || buttonMode == TOGGLE) {
+      // Trigger button action
+      // TODO: OSC send
+      print(String.format("%s pressed (TOUCH_DOWN)", this.oscId));
 
-    @Override
-    public void touchStarted(int id) {
-      super.touchStarted(id);
-      if (buttonMode == TOGGLE) {
-        toggleState = ! toggleState;
-      }
-      if (buttonMode == TOUCH_DOWN || buttonMode == TOGGLE) {
-        // Trigger button action
-        // TODO: OSC send
-        print(String.format("%s pressed (TOUCH_DOWN)", this.oscId));
+      // no need to track the touch any more
+      touchPositions[id] = null;
+      touchIds.remove(Integer.valueOf(id));
 
-        // no need to track the touch any more
-        touchPositions[id] = null;
-        touchIds.remove(Integer.valueOf(id));
-
-        recentTouchCountdown = 64;
-      }
+      recentTouchCountdown = 64;
     }
+  }
 
-    @Override
-    public void touchEnded(int id) {
-        PVector p = touchPositions[id];
-        if (p != null) {
-          if (buttonMode == TOUCH_UP && this.bounds.containsPoint(p.x, p.y)) {
-            // Trigger button action
-            // TODO: OSC send
-            print(String.format("%s pressed (TOUCH_UP) id=%d", this.oscId, id));
-            recentTouchCountdown = 64;
-          }
+  @Override
+  public void touchEnded(int id) {
+      PVector p = touchPositions[id];
+      if (p != null) {
+        if (buttonMode == TOUCH_UP && this.bounds.containsPoint(p.x, p.y)) {
+          // Trigger button action
+          // TODO: OSC send
+          print(String.format("%s pressed (TOUCH_UP) id=%d", this.oscId, id));
+          recentTouchCountdown = 64;
         }
-        super.touchEnded(id);
-    }
+      }
+      super.touchEnded(id);
+  }
 
-    @Override
-    public void draw() {
-      if (this.buttonMode == TOGGLE && this.toggleState) {
-        noStroke();
-        fill(borderColor);
-        rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
-      }
-      else if (recentTouchCountdown > 0) {
-        fill(borderColor, recentTouchCountdown*4);
-        noStroke();
-        rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
-        recentTouchCountdown-=1;
-      }
-      super.draw();
+  @Override
+  public void draw() {
+    if (this.buttonMode == TOGGLE && this.toggleState) {
+      noStroke();
+      fill(borderColor);
+      rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
     }
+    else if (recentTouchCountdown > 0) {
+      fill(borderColor, recentTouchCountdown*4);
+      noStroke();
+      rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+      recentTouchCountdown-=1;
+    }
+    super.draw();
+  }
 }
+
 
 class Slider {
   // TODO
 }
 
+
 class TabContainer extends UIBase {
   int activeTabIndex = 0;
+  int tabBarHeight = 100;
+  UIBase tabBar;
+  UIBase contentArea;
 
-  public TabContainer() {
-    super(0, 0, 100, 100, "", UIBase.LAYOUT_NONE);
-
+  public TabContainer(int x, int y, int w, int h) {
+    super(x, y, w, h, "tabs", UIBase.LAYOUT_NONE);
+    tabBar = new UIBase(0, 0, 100, 100, "tabbuttons", UIBase.LAYOUT_HORIZONTAL);
+    contentArea = new UIBase(0, 0, 100, 100, "contentarea", UIBase.LAYOUT_HORIZONTAL);
+    recalcLayout();
   }
-  // TODO
+
+  @Override
+  void addChild(UIBase child) {
+    contentArea.addChild(child);
+    Button b = new Button(child.oscId, Button.TOGGLE);
+    tabBar.addChild(b);
+    tabBar.recalcLayout();
+    contentArea.recalcLayout();
+    recalcLayout();
+  }
+
+  @Override
+  void recalcLayout() {
+    tabBar.bounds.x = bounds.x;
+    tabBar.bounds.y = bounds.y;
+    tabBar.bounds.w = bounds.w;
+    tabBar.bounds.h = tabBarHeight;
+    tabBar.recalcLayout();
+
+    contentArea.bounds.x = bounds.x;
+    contentArea.bounds.y = bounds.y + tabBarHeight+pad;
+    contentArea.bounds.w = bounds.w;
+    contentArea.bounds.h = bounds.h - tabBarHeight-pad;
+    contentArea.recalcLayout();
+    if (children.size() > 0) {
+      for (UIBase child: children) {
+        child.recalcLayout();
+      }
+    }
+  }
+
+  @Override
+  void draw() {
+    stroke(255,10,10);
+    noFill();
+    //rect(bounds.x+pad, bounds.y+tabBarHeight+pad, bounds.w-pad*2, tabBarHeight);
+    //rect(bounds.x, bounds.y, bounds.x+bounds.w-1, bounds.y+bounds.h-1);
+    tabBar.draw();
+    contentArea.draw();
+    // draw only the active child
+    //int nchild = this.children.size();
+    //if (nchild > 0 && activeTabIndex < nchild) {
+    //  UIBase child = children.get(activeTabIndex);
+    //  child.draw();
+    //}
+  }
+
+  @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    tabBar.touchStarted(id);
+    contentArea.touchStarted(id);
+  }
+
+  @Override
+  public void touchEnded(int id) {
+    super.touchEnded(id);
+    tabBar.touchEnded(id);
+    contentArea.touchEnded(id);
+  }
+
+  @Override
+  public void touchMoved(MotionEvent e) {
+    super.touchMoved(e);
+    tabBar.touchMoved(e);
+    contentArea.touchMoved(e);
+  }
+
+  void activateTab(int tabIndex) {
+    if (tabIndex < children.size()) {
+      this.activeTabIndex = tabIndex;
+      recalcLayout();
+    }
+  }
 }
 
 class HeliosControl {
@@ -538,7 +599,7 @@ class XYPad extends UIBase {
     noStroke();
     fill(255,255,10);
     if (touchIds.size() > 0) {
-      ellipse(dotx, doty, 150, 150);
+      ellipse(dotx, doty, 100, 100);
     }
     else {
       ellipse(dotx, doty, 20, 20);
