@@ -11,6 +11,7 @@ class UIBase {
   public ArrayList<UIBase> children;
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
+  public float borderWeight = 1; 
   String oscId;
   Boolean oscEnabled = false;
   String label;
@@ -143,8 +144,9 @@ class UIBase {
 
   public void drawBounds() {
     stroke(borderColor);
+    strokeWeight(borderWeight);
     noFill();
-    rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+    rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 32 );
 
   }
 
@@ -181,7 +183,7 @@ class UIBase {
           ellipse(px, py, d, d);
 
           if (this.bounds.containsPoint(px, py)) {
-          // crosshair
+            // crosshair
             strokeWeight(1);
             stroke(255);
             line(px, this.bounds.y, px, this.bounds.y+this.bounds.h-1);
@@ -330,7 +332,8 @@ class Button extends UIBase {
   public static final int TOUCH_UP   = 1; // triggers on touch
   public static final int TOGGLE     = 2; // triggers on touch, toggle state
   private final Runnable onPressCallback;
-
+  color onFillColor = color(0, 255, 32, 128);
+  color offFillColor = color(0, 255, 32, 32);
   
   int recentTouchCountdown = 0;
 
@@ -400,11 +403,12 @@ class Button extends UIBase {
   public void draw() {
     if (this.buttonMode == TOGGLE && this.toggleState) {
       noStroke();
-      fill(borderColor);
+      stroke(borderColor);
+      fill(onFillColor);
       rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
     }
     else if (recentTouchCountdown > 0) {
-      fill(borderColor, recentTouchCountdown*4);
+      fill(onFillColor, recentTouchCountdown*4);
       noStroke();
       rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
       recentTouchCountdown-=2;
@@ -444,7 +448,7 @@ class Slider extends UIBase {
     
     // slider range line
     strokeWeight(8);
-    stroke(96);
+    stroke(48);
     line(cx, sliderMinY, cx, valy-sliderHandleSize/2);
     stroke(sliderColor);
     line(cx, valy, cx, sliderMaxY);
@@ -461,9 +465,11 @@ class Slider extends UIBase {
     
     // draw value text
     textSize(LARGETEXT*1.25);
+    fill(0,255,0);
     String valText = String.format("%.2f", this.value);
     text(valText, cx - textWidth(valText)/2, bounds.y + vpad/2 + LARGETEXT);
-        
+
+    //gradation lines
     strokeWeight(2);
     stroke(96);
     float gradw = 10;
@@ -475,20 +481,21 @@ class Slider extends UIBase {
     //line(cx-gradw, sliderMaxY, cx+gradw, sliderMaxY);
     //line(cx-gradw, gradc, cx+gradw, gradc);
     
-    //fill(255);
-    //noStroke();
-    //textSize(SMALLTEXT);
-    //text("1", bounds.x+pad, sliderMinY+SMALLTEXT);
-    //text("0", bounds.x+pad, sliderMaxY+SMALLTEXT);
-    //text("0.5", bounds.x+pad, gradc+SMALLTEXT);
-
-    
-    
     strokeWeight(1);
     drawBounds();
     drawLabel();
     //super.draw();
   }
+
+  @Override
+  public void drawLabel() {
+      fill(255);
+      String info = this.label;
+      textSize(SMALLTEXT);
+      text(info, this.bounds.x+16, this.bounds.y+40);  
+  }
+
+
 
   @Override
   public void touchMoved(MotionEvent e) {
@@ -525,10 +532,12 @@ class XYPad extends UIBase {
   PVector pos;
   float tx, ty, ta, tr;
   float ptx, pty;
+  color textColor = color(0, 255, 32);
 
   public XYPad(int _x, int _y, int _w, int _h, String _oscId, int _coordSys) {
     super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
     this.coordSys = _coordSys;
+    this.pad = 64;
     tx = 0.0;
     ty = 0.0;
     ta = 0.0;
@@ -546,7 +555,8 @@ class XYPad extends UIBase {
 
     strokeWeight(1);
     drawBounds();
-    stroke(128);
+    strokeWeight(2);
+    stroke(192);
     noFill();
     rect(ctlx, ctly, dim, dim);
 
@@ -561,10 +571,17 @@ class XYPad extends UIBase {
       this.pos.x = p.x;
       this.pos.y = p.y;
 
-      tx = (p.x - this.bounds.x) / this.bounds.w;
-      ty = 1.0 - (p.y - this.bounds.y) / this.bounds.h;
+      tx = (p.x - ctlx) / dim;
+      ty = 1.0 - (p.y - ctly) / dim;
+      //tx = (p.x - this.bounds.x) / this.bounds.w;
+      //ty = 1.0 - (p.y - this.bounds.y) / this.bounds.h;
       tx = max(0, min(1.0, tx));
       ty = max(0, min(1.0, ty));
+
+      float cx = tx - 0.5;
+      float cy = ty - 0.5;
+      ta = atan2(cx, cy);
+      tr = (float)Math.sqrt(cx*cx+cy*cy);
     }
     else {
       p = this.pos;
@@ -573,7 +590,7 @@ class XYPad extends UIBase {
     // crosshair
     if (this.bounds.containsPoint(p.x, p.y)) {
       strokeWeight(1);
-      stroke(10, 255, 255);
+      stroke(128);
       line(p.x, ctly, p.x, ctly+dim-1);
       line(ctlx, p.y, ctlx+dim-1, p.y);
     }
@@ -583,7 +600,7 @@ class XYPad extends UIBase {
 
     // touch point
     noStroke();
-    fill(255,255,10);
+    fill(0,255,32);
     if (touchIds.size() > 0) {
       ellipse(dotx, doty, 100, 100);
     }
@@ -599,20 +616,36 @@ class XYPad extends UIBase {
     line(ctlx+dim/2, ctly, ctlx+dim/2, ctly+dim);
     line(ctlx, ctly+dim/2, ctlx+dim, ctly+dim/2);
 
+    stroke(0, 255,32);
+    strokeWeight(8);
+    float ang = ta + PI*1.5;
+    if (ta >= 0) {
+      arc(ctlx+dim/2, ctly+dim/2, dim, dim, PI*1.5, ang);
+    }
+    else {
+      arc(ctlx+dim/2, ctly+dim/2, dim, dim, ang, PI*1.5);    
+    }
+    
     PVector pn = new PVector(p.x, p.y).sub(new PVector(ctlcx, ctlcy)).normalize().mult(dim/2);
     // angle radius line
     strokeWeight(4);
-    stroke(255,255,10);
+    stroke(0,255,32);
     line(ctlcx, ctlcy, dotx, doty);
     stroke(240);
+    fill(255);
     ellipse(ctlcx+pn.x, ctlcy+pn.y, 16, 16);
+    ellipse(ctlcx, ctlcy, 16, 16);
 
     //line(ctlcx, ctlcy, ctlcx+pn.x, ctlcy+pn.y);
 
-    fill(255);
+    fill(textColor);
     noStroke();
     textSize(LARGETEXT);
-    text(String.format("[%.2f, %.2f]", tx, ty), this.bounds.x+10, this.bounds.y+40);
+    
+    String xytext = String.format("[%.2f, %.2f]", tx, ty);
+    String artext = String.format("[%.2f, %.2f]", degrees(ta), tr);
+    text(xytext, bounds.x+40, bounds.y+60);
+    text(artext, bounds.x+bounds.w - 40 - textWidth(artext), bounds.y+60);
 
   }
 
