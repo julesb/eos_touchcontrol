@@ -20,31 +20,37 @@ void setup() {
   
   touchMap = new ArrayList<Integer>();
   
-  //  UIBase buttonPanel1 = new UIBase(0, 0, 100, 100, "buttonpanel1", UIBase.LAYOUT_HORIZONTAL);
-  //    Button button1 = new Button("Button1", Button.TOUCH_DOWN);
-  //    button1.borderColor = color(255, 10, 10);
-  //    Button button2 = new Button("Button2", Button.TOUCH_UP);
-  //    button2.borderColor = color(10, 255, 10);
-  //    Button button3 = new Button("Button3", Button.TOGGLE);
-  //    button3.borderColor = color(10, 0, 255);
+    UIBase buttonPanel1 = new UIBase(0, 0, 100, 100, "buttonpanel1", UIBase.LAYOUT_VERTICAL);
+      Button button1 = new Button("Touch Down", Button.TOUCH_DOWN);
+      button1.borderColor = color(255, 10, 10);
+      Button button2 = new Button("Touch Up", Button.TOUCH_UP);
+      button2.borderColor = color(10, 255, 10);
+      Button button3 = new Button("Toggle", Button.TOGGLE);
+      button3.borderColor = color(10, 0, 255);
+      buttonPanel1.addChild(button1);
+      buttonPanel1.addChild(button2);
+      buttonPanel1.addChild(button3);
 
-  //    buttonPanel1.addChild(button1);
-  //    buttonPanel1.addChild(button2);
-  //    buttonPanel1.addChild(button3);
+  UIBase tab1 = new UIBase("tab1", UIBase.LAYOUT_HORIZONTAL);
+  tab1.label = "XY Pad  |  Grid";
+    UIBase buttonGrid1 = makeButtonGrid(5, 5, "g1");
+    XYPad xypad1 = new XYPad(0, 0, 100, 100, "xypad1", XYPad.CARTESIAN);
+    tab1.addChild(xypad1);
+    tab1.addChild(buttonGrid1);
 
-  UIBase panel1 = new UIBase("panel1", UIBase.LAYOUT_HORIZONTAL);
-  panel1.label = "XY Control  |  Button Grid";
-  UIBase panel2 = new UIBase("panel2", UIBase.LAYOUT_HORIZONTAL);
-  panel2.label = "10 Fingers";
-  panel2.borderColor = color(10, 255, 10);
-  UIBase panel3 = makeSliderBank(16, Slider.VERTICAL, "b1");
-  panel3.label = "Slider Bank 1";
-  UIBase panel4 = new UIBase("panel4", UIBase.LAYOUT_HORIZONTAL);
+  UIBase tab2 = new UIBase("tab2", UIBase.LAYOUT_HORIZONTAL);
+  tab2.label = "10 Fingers";
+  tab2.borderColor = color(10, 255, 10);
   
-  UIBase buttonGrid1 = makeButtonGrid(5, 5, "g1");
-  XYPad xypad1 = new XYPad(0, 0, 100, 100, "xypad1", XYPad.CARTESIAN);
-  panel1.addChild(xypad1);
-  panel1.addChild(buttonGrid1);
+  UIBase tab3 = makeSliderBank(12, Slider.VERTICAL, "b1");
+  tab3.label = "Slider Bank 1";
+  
+  UIBase tab4 = new UIBase("Button Test", UIBase.LAYOUT_HORIZONTAL);
+  tab4.addChild(buttonPanel1);
+  tab4.addChild(new UIBase("", UIBase.LAYOUT_HORIZONTAL));
+  
+  UIBase tab5 = new UIBase("Tab 5", UIBase.LAYOUT_HORIZONTAL);
+  
   
   //panel1.addChild(buttonPanel1);
   //panel1.addChild(buttonGrid1);
@@ -53,10 +59,11 @@ void setup() {
 
   TabContainer tabs = new TabContainer(0, infoHeight, 100, 100);
   
-  tabs.addChild(panel1);
-  tabs.addChild(panel2);
-  tabs.addChild(panel3);
-  tabs.addChild(panel4);
+  tabs.addChild(tab1);
+  tabs.addChild(tab2);
+  tabs.addChild(tab3);
+  tabs.addChild(tab4);
+  tabs.addChild(tab5);
   tabs.setActiveTab(0);
   
   root = new UIBase(1, infoHeight, width-1, height-1 - infoHeight, "root", UIBase.LAYOUT_HORIZONTAL);
@@ -140,6 +147,7 @@ TouchEvent.Pointer getTouchById(int id) {
 
 UIBase makeSliderBank(int numSliders, int direction, String oscId) {
   UIBase bank = new UIBase(oscId, UIBase.LAYOUT_HORIZONTAL);
+  bank.pad = 16;
   for (int i=0; i < numSliders; i++) {
     Slider s = new Slider(String.format("%ss%d", oscId, i), direction);
     
@@ -151,11 +159,13 @@ UIBase makeSliderBank(int numSliders, int direction, String oscId) {
 
 UIBase makeButtonGrid(int rows, int cols, String oscId) {
   UIBase grid = new UIBase(0, 0, width-1, height-1, oscId, UIBase.LAYOUT_GRID);
+  grid.pad = 24;
   int numchild = rows * cols;
   grid.gridRows = rows;
   grid.gridCols = cols;
   for (int i=0; i < numchild; i++) {
     Button b = new Button(String.format("%sb%d", oscId, i), Button.TOGGLE);
+    b.borderWeight = 4;
     grid.addChild(b);
   }
   return grid;
