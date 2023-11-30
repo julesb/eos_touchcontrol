@@ -335,12 +335,13 @@ class Button extends UIBase {
   color onFillColor = color(0, 255, 32, 128);
   color offFillColor = color(0, 255, 32, 32);
   
-  int recentTouchCountdown = 0;
+  float recentTouchCountdown = 0;
+  float releaseFadeSecs = 0.5;
+
 
   int buttonMode = 0;
   Boolean toggleState = false;
 
-  //public Button(int x, int y, int w, int h, String oscId, int mode) {
   public Button(int x, int y, int w, int h, String oscId, int mode, Runnable onPressCallback) {
     super(x, y, w, h, oscId, UIBase.LAYOUT_NONE);
     this.buttonMode = mode;
@@ -348,15 +349,11 @@ class Button extends UIBase {
   }
 
   public Button(String oscId, int buttonMode) {
-    //super(0, 0, 100, 100, _oscId, _mode, null);
     this(0, 0, 100, 100, oscId, buttonMode, null);
-    //this.buttonMode = buttonMode;
   }
   
   public Button(String oscId, int buttonMode, Runnable onPressCallback) {
-    //super(0, 0, 100, 100, _oscId, _mode, null);
     this(0, 0, 100, 100, oscId, buttonMode, onPressCallback);
-    //this.buttonMode = buttonMode;
   }
 
 
@@ -378,7 +375,26 @@ class Button extends UIBase {
       touchPositions[id] = null;
       touchIds.remove(Integer.valueOf(id));
 
-      recentTouchCountdown = 64;
+      // ensure screen redraw while button fading
+      int pendingFrameCount;
+      if (buttonMode == TOGGLE) {
+        if (toggleState) {
+          pendingFrameCount = 1;
+        }
+        else {
+          pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
+        }
+      }
+      else if (buttonMode == TOUCH_DOWN) {
+          pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
+      }
+      else {
+        pendingFrameCount = 0;
+      }
+      recentTouchCountdown = pendingFrameCount;
+      if (pendingFrameCount > gPendingAnimFrames) {
+        gPendingAnimFrames = pendingFrameCount;
+      }
     }
   }
 
@@ -393,7 +409,13 @@ class Button extends UIBase {
           if(this.onPressCallback != null) {
             this.onPressCallback.run();
           }
-          recentTouchCountdown = 64;
+
+          // ensure screen redraw while button fading
+          int pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
+          recentTouchCountdown = pendingFrameCount;
+          if (pendingFrameCount > gPendingAnimFrames) {
+            gPendingAnimFrames = pendingFrameCount;
+          }
         }
       }
       super.touchEnded(id);
@@ -407,11 +429,11 @@ class Button extends UIBase {
       fill(onFillColor);
       rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
     }
-    else if (recentTouchCountdown > 0) {
-      fill(onFillColor, recentTouchCountdown*4);
+    else if (recentTouchCountdown >= 0) {
+      fill(onFillColor, recentTouchCountdown * 255.0/gTargetFrameRate/releaseFadeSecs);
       noStroke();
       rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
-      recentTouchCountdown-=2;
+      recentTouchCountdown--;
     }
     super.draw();
   }
@@ -573,11 +595,8 @@ class XYPad extends UIBase {
 
       tx = (p.x - ctlx) / dim;
       ty = 1.0 - (p.y - ctly) / dim;
-      //tx = (p.x - this.bounds.x) / this.bounds.w;
-      //ty = 1.0 - (p.y - this.bounds.y) / this.bounds.h;
       tx = max(0, min(1.0, tx));
       ty = max(0, min(1.0, ty));
-
       float cx = tx - 0.5;
       float cy = ty - 0.5;
       ta = atan2(cx, cy);

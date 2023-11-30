@@ -4,6 +4,8 @@ import android.view.MotionEvent;
 
 UIBase root;
 ArrayList<Integer> touchMap;
+int gTargetFrameRate = 60;
+int gPendingAnimFrames = 0;
 
 int LARGETEXT;
 int SMALLTEXT;
@@ -50,15 +52,10 @@ void setup() {
   tab4.addChild(new UIBase("", UIBase.LAYOUT_HORIZONTAL));
   
   UIBase tab5 = new UIBase("Tab 5", UIBase.LAYOUT_HORIZONTAL);
-  
-  
-  //panel1.addChild(buttonPanel1);
-  //panel1.addChild(buttonGrid1);
 
   int infoHeight = 32;
-
   TabContainer tabs = new TabContainer(0, infoHeight, 100, 100);
-  
+
   tabs.addChild(tab1);
   tabs.addChild(tab2);
   tabs.addChild(tab3);
@@ -82,7 +79,13 @@ void draw() {
   noStroke();
   textSize(SMALLTEXT);
   text((int)frameRate, 7, 26);
+  String framecountStr = String.format("%d", frameCount);
+  text(framecountStr, width - textWidth(framecountStr)-7, 26);
   //drawTouches();
+  gPendingAnimFrames--;
+  if (touchMap.size() == 0 && gPendingAnimFrames < 0) {
+    noLoop();
+  }
 }
 
 
@@ -94,6 +97,9 @@ void touchStarted() {
       println(String.format("\tid: %d", p.id));
       root.touchStarted(p.id);
     }
+  }
+  if (touchMap.size() == 1) {
+    loop();
   }
 }
 
