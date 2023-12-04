@@ -1,20 +1,25 @@
-
 import android.view.MotionEvent;
+import netP5.*;
+import oscP5.*;
 
 
 UIBase root;
 ArrayList<Integer> touchMap;
-int gTargetFrameRate = 60;
+int gTargetFrameRate = 120;
 int gPendingAnimFrames = 0;
 
 int LARGETEXT;
 int SMALLTEXT;
 
+OscP5 oscP5;
+NetAddress network;
+OscProperties oscProps;
+Boolean gOscEnabled = false;
 
 void setup() {
   fullScreen(P3D, 1);
   orientation(LANDSCAPE);
-  frameRate(60);
+  frameRate(gTargetFrameRate);
   LARGETEXT = (int)(36 * displayDensity);
   SMALLTEXT = (int)(24 * displayDensity);
   
@@ -22,51 +27,60 @@ void setup() {
   
   touchMap = new ArrayList<Integer>();
   
-    UIBase buttonPanel1 = new UIBase(0, 0, 100, 100, "buttonpanel1", UIBase.LAYOUT_VERTICAL);
-      Button button1 = new Button("Touch Down", Button.TOUCH_DOWN);
-      button1.borderColor = color(255, 10, 10);
-      Button button2 = new Button("Touch Up", Button.TOUCH_UP);
-      button2.borderColor = color(10, 255, 10);
-      Button button3 = new Button("Toggle", Button.TOGGLE);
-      button3.borderColor = color(10, 0, 255);
-      buttonPanel1.addChild(button1);
-      buttonPanel1.addChild(button2);
-      buttonPanel1.addChild(button3);
+  UIBase buttonPanel1 = new UIBase(0, 0, 100, 100, "buttonpanel1", UIBase.LAYOUT_VERTICAL);
+    Button button1 = new Button("Touch Down", Button.TOUCH_DOWN);
+    button1.borderColor = color(255, 10, 10);
+    Button button2 = new Button("Touch Up", Button.TOUCH_UP);
+    button2.borderColor = color(10, 255, 10);
+    Button button3 = new Button("Toggle", Button.TOGGLE);
+    button3.borderColor = color(10, 0, 255);
+    buttonPanel1.addChild(button1);
+    buttonPanel1.addChild(button2);
+    buttonPanel1.addChild(button3);
 
   UIBase tab1 = new UIBase("tab1", UIBase.LAYOUT_HORIZONTAL);
-  tab1.label = "XY Pad  |  Grid";
+    tab1.borderColor = color(0);
+    tab1.label = "XY Pad  |  Grid";
     UIBase buttonGrid1 = makeButtonGrid(5, 5, "g1");
     XYPad xypad1 = new XYPad(0, 0, 100, 100, "xypad1", XYPad.CARTESIAN);
     tab1.addChild(xypad1);
     tab1.addChild(buttonGrid1);
 
   UIBase tab2 = new UIBase("tab2", UIBase.LAYOUT_HORIZONTAL);
-  tab2.label = "10 Fingers";
-  tab2.borderColor = color(10, 255, 10);
-  
+    tab2.label = "10 Fingers";
+    tab2.borderColor = color(10, 255, 10);
+
   UIBase tab3 = makeSliderBank(12, Slider.VERTICAL, "b1");
-  tab3.label = "Slider Bank 1";
-  
+    tab3.borderColor = color(0);
+    tab3.label = "Slider Bank 1";
+
   UIBase tab4 = new UIBase("Button Test", UIBase.LAYOUT_HORIZONTAL);
-  tab4.addChild(buttonPanel1);
-  tab4.addChild(new UIBase("", UIBase.LAYOUT_HORIZONTAL));
-  
-  UIBase tab5 = new UIBase("Tab 5", UIBase.LAYOUT_HORIZONTAL);
+    tab4.borderColor = color(0);
+    tab4.addChild(buttonPanel1);
+    tab4.addChild(new UIBase("", UIBase.LAYOUT_HORIZONTAL));
 
-  int infoHeight = 32;
+  Touch10 tab5 = new Touch10("Touch10");
+
+  int infoHeight = 24;
   TabContainer tabs = new TabContainer(0, infoHeight, 100, 100);
-
-  tabs.addChild(tab1);
-  tabs.addChild(tab2);
-  tabs.addChild(tab3);
-  tabs.addChild(tab4);
-  tabs.addChild(tab5);
-  tabs.setActiveTab(0);
+    tabs.addChild(tab1);
+    tabs.addChild(tab2);
+    tabs.addChild(tab3);
+    tabs.addChild(tab4);
+    tabs.addChild(tab5);
+    tabs.setActiveTab(0);
   
   root = new UIBase(1, infoHeight, width-1, height-1 - infoHeight, "root", UIBase.LAYOUT_HORIZONTAL);
-  root.borderColor = color(0);
-  root.addChild(tabs);
-  root.recalcLayout();
+    root.borderColor = color(0);
+    root.addChild(tabs);
+    root.recalcLayout();
+  
+  oscProps = new OscProperties();
+  network = new NetAddress("192.168.1.102", 12000);
+  oscProps.setRemoteAddress(network);
+  oscProps.setDatagramSize(65536);
+  oscP5 = new OscP5(this, oscProps);
+  
 }
 
 
@@ -77,11 +91,20 @@ void draw() {
 
   fill(255);
   noStroke();
+
   textSize(SMALLTEXT);
-  text((int)frameRate, 7, 26);
+
   String framecountStr = String.format("%d", frameCount);
   text(framecountStr, width - textWidth(framecountStr)-7, 26);
+  
+  // only draw framerate if updating
+  if (touchMap.size() > 0 || gPendingAnimFrames > 0) {
+    text((int)frameRate, 7, 26);
+  }  
+  
+  
   //drawTouches();
+  
   gPendingAnimFrames--;
   if (touchMap.size() == 0 && gPendingAnimFrames < 0) {
     noLoop();
@@ -172,11 +195,11 @@ UIBase makeButtonGrid(int rows, int cols, String oscId) {
   for (int i=0; i < numchild; i++) {
     Button b = new Button(String.format("%sb%d", oscId, i), Button.TOGGLE);
     b.borderWeight = 4;
+    //b.offBorderColor = color(0, 64, 0);
     grid.addChild(b);
   }
   return grid;
 }
-
 
 
 
@@ -195,6 +218,7 @@ String formatTouchIds(ArrayList<Integer> touchIds) {
   return sb.toString();
 }
 
+
 String formatTouches() {
   if (touches == null || touches.length == 0) {
     return "[]";
@@ -211,6 +235,25 @@ String formatTouches() {
 }
 
 
+void oscSend(float val1, String oscid) {
+  OscMessage msg = new OscMessage(oscid);
+  msg.add(val1);
+  oscP5.send(msg, network);
+}
+
+color sinebow(float t) {
+  t = 0.5 - t;
+  float r = (float)Math.pow(Math.sin(Math.PI * (t + 0.0 / 3)), 2);
+  float g = (float)Math.pow(Math.sin(Math.PI * (t + 1.0 / 3)), 2);
+  float b = (float)Math.pow(Math.sin(Math.PI * (t + 2.0 / 3)), 2);
+  
+  // Convert the floats to a range 0-255 for Processing color function
+  int red = (int)(r * 255);
+  int green = (int)(g * 255);
+  int blue = (int)(b * 255);
+  
+  return color(red, green, blue);
+}
 
 class Rect {
   float x=0, y=0, w=0, h=0;

@@ -11,7 +11,9 @@ class UIBase {
   public ArrayList<UIBase> children;
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
-  public float borderWeight = 1; 
+  public float borderWeight = 1;
+  public color textColor = color(255);
+  
   String oscId;
   Boolean oscEnabled = false;
   String label;
@@ -151,7 +153,7 @@ class UIBase {
   }
 
   public void drawLabel() {
-      fill(255);
+      fill(textColor);
       String info = this.label;
       textSize(LARGETEXT);
       text(info, this.bounds.x+16, this.bounds.y+40);  
@@ -220,6 +222,8 @@ class UIBase {
     float ny = (p.y - this.bounds.y) / this.bounds.h;
     return new PVector(nx, ny);
   }
+  
+
 
 } // End UIBase
 
@@ -227,6 +231,8 @@ class UIBase {
 class TabContainer extends UIBase {
   int activeTabIndex = 0;
   int tabBarHeight = 120;
+  //color activeTabTextColor = color(255);
+  //color inactiveTabTextColor = color(128);
   UIBase tabBar;
   UIBase contentArea;
 
@@ -249,6 +255,9 @@ class TabContainer extends UIBase {
         setActiveTab(tabIndex);
       }
     });
+    b.onFillColor = color(32);
+    b.offBorderColor = color(64);
+    
     b.label = child.label;
     //b.borderColor = child.borderColor;
     tabBar.addChild(b);
@@ -332,8 +341,13 @@ class Button extends UIBase {
   public static final int TOUCH_UP   = 1; // triggers on touch
   public static final int TOGGLE     = 2; // triggers on touch, toggle state
   private final Runnable onPressCallback;
+
+  color onBorderColor = color(96);
+  color offBorderColor = color(64);
   color onFillColor = color(0, 255, 32, 128);
   color offFillColor = color(0, 255, 32, 32);
+  color onTextColor = color(255);
+  color offTextColor = color(142);
   
   float recentTouchCountdown = 0;
   float releaseFadeSecs = 0.5;
@@ -422,6 +436,15 @@ class Button extends UIBase {
   }
 
   @Override
+  public void drawLabel() {
+      fill(textColor);
+      String info = this.label;
+      textSize(LARGETEXT);
+      text(info, bounds.x+bounds.w/2-textWidth(info)/2, bounds.y+bounds.h/2 + LARGETEXT/4);  
+      //text(info, this.bounds.x+16, this.bounds.y+40);  
+  }
+  
+  @Override
   public void draw() {
     if (this.buttonMode == TOGGLE && this.toggleState) {
       noStroke();
@@ -432,10 +455,16 @@ class Button extends UIBase {
     else if (recentTouchCountdown >= 0) {
       fill(onFillColor, recentTouchCountdown * 255.0/gTargetFrameRate/releaseFadeSecs);
       noStroke();
-      rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 16 );
+      rect(this.bounds.x, this.bounds.y, this.bounds.w, this.bounds.h, 32 );
       recentTouchCountdown--;
     }
-    super.draw();
+
+    borderColor = toggleState? onBorderColor: offBorderColor;
+    drawBounds();
+
+    textColor = toggleState? onTextColor: offTextColor;
+    drawLabel();
+    //super.draw();
   }
 }
 
@@ -539,7 +568,98 @@ class Slider extends UIBase {
 
 }
 
+class Touch10 extends UIBase {
+  static final int numhandles = 10;
+  PVector[] handles = new PVector[numhandles];
+  color[] handleColors = new color[numhandles];
+  
+  public Touch10(String _oscId) {
+    super(0, 0, 100, 100, _oscId, UIBase.LAYOUT_NONE);
+    for (int i=0; i< numhandles; i++) {
+      handles[i] = new PVector(bounds.w/2, bounds.h/2); 
+    }
+    initColors();
+  }
 
+  void initColors() {
+    //float maxt = 1 - 1.0/(numhandles);
+    float step = 1.0/numhandles;
+    
+    for (int i=0; i< numhandles; i++) {
+      float t = i * step;
+      handleColors[i] = sinebow(t);
+    }
+  }
+
+  @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    print(String.format("10Fingers %s pressed (TOUCH_DOWN)", this.oscId));
+  }
+  
+  
+  @Override
+  void recalcLayout() {
+    super.recalcLayout();
+    float edgespace = 200;
+    for (int i=0; i< numhandles; i++) {
+      if (handles[i] == null) {
+        handles[i] = new PVector(
+          edgespace + random(bounds.w - 2*edgespace),
+          edgespace + random(bounds.h - 2*edgespace)
+        );
+      }
+    }
+  }
+  
+  int findClosestHandleIndex(PVector t) {
+    float minDist = 99999;
+    int minIdx = -1;
+    for (int i=0; i < numhandles; i++) {
+      float dist = handles[i].dist(t);
+      if (dist < minDist && dist < 150) {
+        minDist = dist;
+        minIdx = i;
+      }
+    }
+    return minIdx;
+  }
+  
+  @Override
+  void draw() {
+    //super.draw();
+    noStroke();
+    
+    //for (int i=0; i<touchIds.size(); i++) {
+    //  int tid = touchIds.get(i);
+    //  TouchEvent.Pointer p = getTouchById(tid);
+    //  if (p != null) {
+    //    float px = bounds.x + p.x;
+    //    float py = bounds.y + p.y;
+
+    //    // touch point
+    //    int d = 150;
+    //    noStroke();
+    //    fill(handleColors[tid]);
+    //    ellipse(px, py, d, d);
+    //  }
+    //}
+    
+    for (int i=0; i< numhandles; i++) {
+      if (touchPositions[i] != null) {
+        PVector p = touchPositions[i];
+        int closestHandleIdx = findClosestHandleIndex(p);
+        if (closestHandleIdx > -1) {
+          handles[closestHandleIdx] = p;
+        }
+      }
+      PVector p = handles[i];
+      fill(handleColors[i]);
+      ellipse(p.x, p.y, 150, 150);
+      
+    }
+  }  
+}
 
 
 class HeliosControl {
@@ -549,12 +669,18 @@ class HeliosControl {
 
 class XYPad extends UIBase {
   public static final int CARTESIAN = 0;
-  public static final int POLAR = 0;
+  public static final int POLAR = 1;
+  public static final int ORIGIN_BOTTOMRIGHT = 0;
+  public static final int ORIGIN_CENTER = 1;
+  
   int coordSys = CARTESIAN;
+
   PVector pos;
   float tx, ty, ta, tr;
   float ptx, pty;
   color textColor = color(0, 255, 32);
+  UIBase buttonPanel;
+
 
   public XYPad(int _x, int _y, int _w, int _h, String _oscId, int _coordSys) {
     super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
@@ -565,6 +691,26 @@ class XYPad extends UIBase {
     ta = 0.0;
     tr = 1.0;
     pos = new PVector(0,0);
+    buttonPanel = new UIBase(bounds.x+pad, bounds.y, bounds.w/4, 72, "", UIBase.LAYOUT_HORIZONTAL);
+      Button modeButton = new Button("", Button.TOGGLE, new Runnable() {
+        public void run() {
+          coordSys = 1 - coordSys;
+        }
+      });
+      
+      modeButton.label = "C";
+      
+      Button originButton = new Button("", Button.TOGGLE, new Runnable() {
+        public void run() {
+          coordSys = 1 - coordSys;
+        }
+      });
+      
+      originButton.label = "L";
+      
+      buttonPanel.addChild(modeButton);
+      buttonPanel.addChild(originButton);
+      this.addChild(buttonPanel);
   }
 
 
@@ -577,6 +723,11 @@ class XYPad extends UIBase {
 
     strokeWeight(1);
     drawBounds();
+    buttonPanel.draw();
+    
+    //drawGradsX(ctlx, ctlx+dim, ctly,     0, 3, -1);
+    //drawGradsX(ctlx, ctlx+dim, ctly+dim, 0, 3,  1);
+
     strokeWeight(2);
     stroke(192);
     noFill();
@@ -609,7 +760,7 @@ class XYPad extends UIBase {
     // crosshair
     if (this.bounds.containsPoint(p.x, p.y)) {
       strokeWeight(1);
-      stroke(128);
+      stroke(0,255,32,128);
       line(p.x, ctly, p.x, ctly+dim-1);
       line(ctlx, p.y, ctlx+dim-1, p.y);
     }
@@ -634,6 +785,13 @@ class XYPad extends UIBase {
     ellipse(ctlx+dim/2, ctly+dim/2, dim, dim);
     line(ctlx+dim/2, ctly, ctlx+dim/2, ctly+dim);
     line(ctlx, ctly+dim/2, ctlx+dim, ctly+dim/2);
+    
+    stroke(255);
+    drawGraduations(ctlx, ctlx+dim, ctly,  0, 3, true, -1);
+    drawGraduations(ctlx, ctlx+dim, ctly+dim, 0, 3, true, 1);  
+    drawGraduations(ctly, ctly+dim, ctlx,  0, 3, false, 1);
+    drawGraduations(ctly, ctly+dim, ctlx+dim, 0, 3, false, -1);
+
 
     stroke(0, 255,32);
     strokeWeight(8);
@@ -663,9 +821,60 @@ class XYPad extends UIBase {
     
     String xytext = String.format("[%.2f, %.2f]", tx, ty);
     String artext = String.format("[%.2f, %.2f]", degrees(ta), tr);
-    text(xytext, bounds.x+40, bounds.y+60);
+    text(xytext, bounds.x+bounds.w/2+0, bounds.y+60);
     text(artext, bounds.x+bounds.w - 40 - textWidth(artext), bounds.y+60);
 
   }
+  
+  @Override
+  void recalcLayout() {
+    super.recalcLayout();
+    buttonPanel.bounds.x = bounds.x+pad;
+    buttonPanel.bounds.y = bounds.y+pad/4;
+    buttonPanel.bounds.w = bounds.w/4;
+    buttonPanel.bounds.h = 64;
+    buttonPanel.recalcLayout();
+  }
+  
+  
+  void drawGraduations(float start, float end, float offset,
+                       int level, int maxLevel, boolean isHorizontal, int tickDir) {
+    if (level > maxLevel) {
+      return;
+    }
+  
+    float mid = (start + end) / 2;
+    float lineLength = 100 * pow(0.5, level);
+  
+    if (isHorizontal) {
+      float y1 = offset;
+      float y2 = y1 - lineLength * tickDir;
+      line(mid, y1, mid, y2);
+    } else {
+      float x1 = offset;
+      float x2 = x1 + lineLength * tickDir;
+      line(x1, mid, x2, mid);
+    }
+  
+    drawGraduations(start, mid, offset, level + 1, maxLevel, isHorizontal, tickDir);
+    drawGraduations(mid, end, offset, level + 1, maxLevel, isHorizontal, tickDir);
+  }
+
+
+  void drawGradsX(float xstart, float xend, float yoffset, int level, int maxLevel, int tickDir) {
+    if (level > maxLevel) {
+      return;
+    }
+
+    float mid = (xstart + xend) / 2;
+    float lineLength = 100 * pow(0.667, level);
+    float y1 = yoffset;
+    float y2 = y1 - lineLength*tickDir;
+    
+    line(mid, y1, mid, y2);
+
+    drawGradsX(xstart, mid, yoffset, level + 1, maxLevel, tickDir);
+    drawGradsX(mid, xend, yoffset, level + 1, maxLevel, tickDir);
+  }  
 
 }
