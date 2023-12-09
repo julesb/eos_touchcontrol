@@ -42,7 +42,7 @@ void setup() {
     tab1.borderColor = color(0);
     tab1.label = "XY Pad  |  Grid";
     UIBase buttonGrid1 = makeButtonGrid(5, 5, "g1");
-    XYPad xypad1 = new XYPad(0, 0, 100, 100, "xypad1", XYPad.CARTESIAN);
+    XYPad xypad1 = new XYPad(0, 0, 100, 100, "/pad1", XYPad.CARTESIAN);
     tab1.addChild(xypad1);
     tab1.addChild(buttonGrid1);
 
@@ -50,9 +50,20 @@ void setup() {
     tab2.label = "10 Fingers";
     tab2.borderColor = color(10, 255, 10);
 
-  UIBase tab3 = makeSliderBank(12, Slider.VERTICAL, "b1");
+
+  UIBase tab3 = new UIBase("tab3", UIBase.LAYOUT_HORIZONTAL);
     tab3.borderColor = color(0);
-    tab3.label = "Slider Bank 1";
+    tab3.label = "Sliders";
+    tab3.borderColor = color(0);
+    UIBase bank1 = makeSliderBank(6, Slider.VERTICAL, "b1");
+    UIBase bank2 = makeSliderBank(6, Slider.HORIZONTAL, "b2");
+    tab3.addChild(bank1);
+    tab3.addChild(bank2);
+    
+
+  //UIBase tab3 = makeSliderBank(12, Slider.VERTICAL, "b1");
+  //  tab3.borderColor = color(0);
+  //  tab3.label = "Slider Bank 1";
 
   UIBase tab4 = new UIBase("Button Test", UIBase.LAYOUT_HORIZONTAL);
     tab4.borderColor = color(0);
@@ -93,6 +104,7 @@ void draw() {
   noStroke();
 
   textSize(SMALLTEXT);
+  textAlign(BASELINE);
 
   String framecountStr = String.format("%d", frameCount);
   text(framecountStr, width - textWidth(framecountStr)-7, 26);
@@ -175,10 +187,18 @@ TouchEvent.Pointer getTouchById(int id) {
 
 
 UIBase makeSliderBank(int numSliders, int direction, String oscId) {
-  UIBase bank = new UIBase(oscId, UIBase.LAYOUT_HORIZONTAL);
+  UIBase bank;
+  if (direction == Slider.VERTICAL) {
+    bank = new UIBase(oscId, UIBase.LAYOUT_HORIZONTAL);
+  }
+  else {
+    bank = new UIBase(oscId, UIBase.LAYOUT_VERTICAL);
+  }
   bank.pad = 16;
+  bank.borderVisible = false;
   for (int i=0; i < numSliders; i++) {
     Slider s = new Slider(String.format("%ss%d", oscId, i), direction);
+    s.label = String.format("Slider %d", i);
     
     bank.addChild(s);
   }
@@ -188,6 +208,7 @@ UIBase makeSliderBank(int numSliders, int direction, String oscId) {
 
 UIBase makeButtonGrid(int rows, int cols, String oscId) {
   UIBase grid = new UIBase(0, 0, width-1, height-1, oscId, UIBase.LAYOUT_GRID);
+  grid.borderVisible = false;
   grid.pad = 24;
   int numchild = rows * cols;
   grid.gridRows = rows;
@@ -195,6 +216,7 @@ UIBase makeButtonGrid(int rows, int cols, String oscId) {
   for (int i=0; i < numchild; i++) {
     Button b = new Button(String.format("%sb%d", oscId, i), Button.TOGGLE);
     b.borderWeight = 4;
+    b.label = b.oscId;
     //b.offBorderColor = color(0, 64, 0);
     grid.addChild(b);
   }

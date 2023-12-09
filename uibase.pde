@@ -12,6 +12,7 @@ class UIBase {
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
   public float borderWeight = 1;
+  public Boolean borderVisible = true;
   public color textColor = color(255);
   
   String oscId;
@@ -25,7 +26,7 @@ class UIBase {
   public UIBase(float x, float y, float w, float h, String oscId, int layout ) {
     this.bounds = new Rect(x, y, w, h);
     this.oscId = oscId;
-    this.label = oscId;
+    this.label = "";
     this.layout = layout;
     this.children = new ArrayList<UIBase>();
     this.touchIds = new ArrayList<Integer>();
@@ -156,6 +157,7 @@ class UIBase {
       fill(textColor);
       String info = this.label;
       textSize(LARGETEXT);
+      textAlign(BASELINE);
       text(info, this.bounds.x+16, this.bounds.y+40);  
   }
 
@@ -166,8 +168,9 @@ class UIBase {
     else {
       strokeWeight(1);
     }
-    drawBounds();
-
+    if (borderVisible) {
+      drawBounds();
+    }
     if (children.size() == 0) {
       drawLabel();
 
@@ -414,25 +417,25 @@ class Button extends UIBase {
 
   @Override
   public void touchEnded(int id) {
-      PVector p = touchPositions[id];
-      if (p != null) {
-        if (buttonMode == TOUCH_UP && this.bounds.containsPoint(p.x, p.y)) {
-          // Trigger button action
-          // TODO: OSC send
-          print(String.format("%s pressed (TOUCH_UP) id=%d", this.oscId, id));
-          if(this.onPressCallback != null) {
-            this.onPressCallback.run();
-          }
+    PVector p = touchPositions[id];
+    if (p != null) {
+      if (buttonMode == TOUCH_UP && this.bounds.containsPoint(p.x, p.y)) {
+        // Trigger button action
+        // TODO: OSC send
+        print(String.format("%s pressed (TOUCH_UP) id=%d", this.oscId, id));
+        if(this.onPressCallback != null) {
+          this.onPressCallback.run();
+        }
 
-          // ensure screen redraw while button fading
-          int pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
-          recentTouchCountdown = pendingFrameCount;
-          if (pendingFrameCount > gPendingAnimFrames) {
-            gPendingAnimFrames = pendingFrameCount;
-          }
+        // ensure screen redraw while button fading
+        int pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
+        recentTouchCountdown = pendingFrameCount;
+        if (pendingFrameCount > gPendingAnimFrames) {
+          gPendingAnimFrames = pendingFrameCount;
         }
       }
-      super.touchEnded(id);
+    }
+    super.touchEnded(id);
   }
 
   @Override
@@ -440,7 +443,9 @@ class Button extends UIBase {
       fill(textColor);
       String info = this.label;
       textSize(LARGETEXT);
-      text(info, bounds.x+bounds.w/2-textWidth(info)/2, bounds.y+bounds.h/2 + LARGETEXT/4);  
+      textAlign(CENTER,CENTER);
+      text(info, bounds.x+bounds.w/2, bounds.y+bounds.h/2);  
+      //text(info, bounds.x+bounds.w/2-textWidth(info)/2, bounds.y+bounds.h/2 + LARGETEXT/3);  
       //text(info, this.bounds.x+16, this.bounds.y+40);  
   }
   
@@ -476,10 +481,13 @@ class Slider extends UIBase {
   float value = 0.0;
   float rangeMin = 0.0;
   float rangeMax = 1.0;
-  float vpad = 200;
+  float hpad = 200; // used with horizontal slider only
+  float vpad = 200; // used with vertical slider only
   color sliderColor = color(0, 255, 32, 192);
-  float sliderMinY = 0.0;
-  float sliderMaxY = 1.0;
+  private float sliderMinX = 0.0;
+  private float sliderMaxX = 1.0;
+  private float sliderMinY = 0.0;
+  private float sliderMaxY = 1.0;
   float sliderHandleSize = 25;
   int primaryTouchId = -1;
  
@@ -489,84 +497,123 @@ class Slider extends UIBase {
   }
 
   @Override
-  public void draw() {
+  void recalcLayout() {
+    super.recalcLayout();
+    sliderMinX = bounds.x+hpad;
+    sliderMaxX = bounds.x+bounds.w-hpad/2;
     sliderMinY = bounds.y+vpad;
     sliderMaxY = bounds.y+bounds.h-vpad/2;
+    
+  }  
 
+  @Override
+  public void draw() {
+    
+    if (this.direction == VERTICAL) {
+      drawVertical();
+    }
+    else {
+      drawHorizontal();
+    }
+    strokeWeight(1);
+    drawBounds();
+    drawLabel();
+  }
+
+  @Override
+  public void drawLabel() {
+    Boolean useLabel = this.label.length() > 0;
+    String info = useLabel? label : oscId;  
+    int txtSize = useLabel? LARGETEXT : SMALLTEXT;
+    fill(255);
+    textSize(txtSize);
+    textAlign(BASELINE, TOP);
+    if (direction == VERTICAL) {
+      text(info, this.bounds.x+pad, this.bounds.y+pad);  
+    }
+    else {
+      if (useLabel) {
+        text(info, this.bounds.x+pad*2, this.bounds.y+pad*2);          
+      }
+      else {
+        text(info, this.bounds.x+pad, this.bounds.y+pad);                  
+      }
+    }
+  }
+
+  void drawHorizontal() {
+    float cy = bounds.y + bounds.h/2;
+    float valx = sliderMinX + this.value * (sliderMaxX - sliderMinX);
+    
+    // slider range line
+    strokeWeight(8);
+    stroke(48);
+    line(valx+sliderHandleSize/2, cy, max(sliderMaxX+sliderHandleSize/2, sliderMaxX), cy);
+    // value indicator line
+    stroke(sliderColor);
+    line(sliderMinX, cy, valx, cy);
+    // draw slider handle
+    noStroke();
+    fill(sliderColor);
+    ellipse(valx, cy, sliderHandleSize, sliderHandleSize);
+    // draw value text
+    textAlign(BASELINE, CENTER);
+    textSize(LARGETEXT*1.2);
+    fill(0,255,0);
+    String valText = String.format("%.3f", this.value);
+    text(valText, bounds.x + pad*4, cy);
+  }
+
+  void drawVertical() {
     float cx = bounds.x + bounds.w/2;
-    float cy = bounds.y + bounds.y/2;
     float valy = sliderMaxY - this.value * (sliderMaxY - sliderMinY);
     
     // slider range line
     strokeWeight(8);
     stroke(48);
-    line(cx, sliderMinY, cx, valy-sliderHandleSize/2);
+    line(cx, min(sliderMinY-sliderHandleSize/2, sliderMinY), cx, valy-sliderHandleSize/2);
+    // value indicator line
     stroke(sliderColor);
     line(cx, valy, cx, sliderMaxY);
-    
     // draw slider handle
     noStroke();
     fill(sliderColor);
     ellipse(cx, valy, sliderHandleSize, sliderHandleSize);
-    
-    //stroke(0,255,32);
-    //strokeWeight(4);
-    //line(cx-25, valy, cx+25, valy);
-    ////line(bounds.x+pad, valy, bounds.x+bounds.w-pad, valy);
-    
     // draw value text
-    textSize(LARGETEXT*1.25);
+    textAlign(BASELINE);
+    textSize(LARGETEXT*1.2);
     fill(0,255,0);
-    String valText = String.format("%.2f", this.value);
+    String valText = String.format("%.3f", this.value);
     text(valText, cx - textWidth(valText)/2, bounds.y + vpad/2 + LARGETEXT);
-
-    //gradation lines
-    strokeWeight(2);
-    stroke(96);
-    float gradw = 10;
-    float gradc = sliderMinY + (sliderMaxY-sliderMinY) / 2.0;
-    //line(bounds.x+pad*4, sliderMinY, cx, sliderMinY);    
-    //line(bounds.x+pad*4, sliderMaxY, cx, sliderMaxY);
-    line(bounds.x+pad*4, gradc, cx, gradc);
-    //line(cx-gradw, sliderMinY, cx+gradw, sliderMinY);    
-    //line(cx-gradw, sliderMaxY, cx+gradw, sliderMaxY);
-    //line(cx-gradw, gradc, cx+gradw, gradc);
-    
-    strokeWeight(1);
-    drawBounds();
-    drawLabel();
-    //super.draw();
   }
-
-  @Override
-  public void drawLabel() {
-      fill(255);
-      String info = this.label;
-      textSize(SMALLTEXT);
-      text(info, this.bounds.x+16, this.bounds.y+40);  
-  }
-
 
 
   @Override
   public void touchMoved(MotionEvent e) {
     super.touchMoved(e);
+
     if (touchIds.size() > 0) {
       int id = touchIds.get(0);
       if (touchPositions[id] != null) {
         primaryTouchId = id;
         PVector p = touchPositions[id];
-        float ny = (p.y - this.bounds.y - vpad*1) / (sliderMaxY-sliderMinY);
-        value = 1.0 - max(0.0, min(1.0, ny));
+
+        if (this.direction == VERTICAL) {
+          float ny = (p.y - this.bounds.y - vpad*1) / (sliderMaxY-sliderMinY);
+          value = 1.0 - max(0.0, min(1.0, ny));
+        }
+        else {
+        float nx = (p.x - this.bounds.x - hpad*1) / (sliderMaxX-sliderMinX);
+        value = max(0.0, min(1.0, nx));
+        }
       }
       else {
         primaryTouchId = -1;
       }
     }
   }
-
-
 }
+
 
 class Touch10 extends UIBase {
   static final int numhandles = 10;
@@ -575,9 +622,9 @@ class Touch10 extends UIBase {
   
   public Touch10(String _oscId) {
     super(0, 0, 100, 100, _oscId, UIBase.LAYOUT_NONE);
-    for (int i=0; i< numhandles; i++) {
-      handles[i] = new PVector(bounds.w/2, bounds.h/2); 
-    }
+    //for (int i=0; i< numhandles; i++) {
+    //  handles[i] = new PVector(bounds.x+bounds.w/2, bounds.y+bounds.h/2); 
+    //}
     initColors();
   }
 
@@ -603,11 +650,18 @@ class Touch10 extends UIBase {
     super.recalcLayout();
     float edgespace = 200;
     for (int i=0; i< numhandles; i++) {
+      float x = edgespace + bounds.x + random(bounds.w - 2*edgespace);
+      float y = edgespace + bounds.y + random(bounds.h - 2*edgespace);
       if (handles[i] == null) {
-        handles[i] = new PVector(
-          edgespace + random(bounds.w - 2*edgespace),
-          edgespace + random(bounds.h - 2*edgespace)
-        );
+        handles[i] = new PVector(x, y);
+        //handles[i] = new PVector(
+        //  edgespace + bounds.x + random(bounds.w - 2*edgespace),
+        //  edgespace + bounds.y + random(bounds.h - 2*edgespace)
+        //);
+      }
+      else {
+        handles[i].x = x;
+        handles[i].y = y;
       }
     }
   }
@@ -713,7 +767,7 @@ class XYPad extends UIBase {
       this.addChild(buttonPanel);
   }
 
-
+  @Override
   public void draw() {
     float dim = min(this.bounds.w, this.bounds.h) - pad*2;
     float ctlx = this.bounds.x + pad;
@@ -752,6 +806,16 @@ class XYPad extends UIBase {
       float cy = ty - 0.5;
       ta = atan2(cx, cy);
       tr = (float)Math.sqrt(cx*cx+cy*cy);
+      
+      if (ptx != tx || pty != tx) {
+        oscSend(tx, oscId+"x");
+        oscSend(ty, oscId+"y");
+        oscSend(ta, oscId+"a");
+        oscSend(tr, oscId+"r");
+        ptx = tx;
+        pty = ty;
+      }
+      
     }
     else {
       p = this.pos;
@@ -780,18 +844,19 @@ class XYPad extends UIBase {
 
     // unit circle
     strokeWeight(1);
-    stroke(128);
+    //stroke(128);
+    stroke(64);
     noFill();
     ellipse(ctlx+dim/2, ctly+dim/2, dim, dim);
+
     line(ctlx+dim/2, ctly, ctlx+dim/2, ctly+dim);
     line(ctlx, ctly+dim/2, ctlx+dim, ctly+dim/2);
     
-    stroke(255);
+    stroke(192);
     drawGraduations(ctlx, ctlx+dim, ctly,  0, 3, true, -1);
     drawGraduations(ctlx, ctlx+dim, ctly+dim, 0, 3, true, 1);  
     drawGraduations(ctly, ctly+dim, ctlx,  0, 3, false, 1);
     drawGraduations(ctly, ctly+dim, ctlx+dim, 0, 3, false, -1);
-
 
     stroke(0, 255,32);
     strokeWeight(8);
@@ -818,7 +883,8 @@ class XYPad extends UIBase {
     fill(textColor);
     noStroke();
     textSize(LARGETEXT);
-    
+    textAlign(BASELINE);
+
     String xytext = String.format("[%.2f, %.2f]", tx, ty);
     String artext = String.format("[%.2f, %.2f]", degrees(ta), tr);
     text(xytext, bounds.x+bounds.w/2+0, bounds.y+60);
