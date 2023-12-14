@@ -12,7 +12,7 @@ class UIBase {
   public Boolean lockAspectRatio = false; // TODO
   public color borderColor = color(128);
   public float borderWeight = 1;
-  public Boolean borderVisible = true;
+  public Boolean borderVisible = false;
   public color textColor = color(255);
   
   String oscId;
@@ -35,6 +35,11 @@ class UIBase {
   public UIBase(String _oscId, int _layout ) {
     this(0, 0, 100, 100, _oscId, _layout);
   }
+
+  public UIBase(String oscId) {
+    this(0, 0, 100, 100, oscId, UIBase.LAYOUT_NONE);
+  }
+
 
   public void addChild(UIBase child) {
     children.add(child);
@@ -260,7 +265,7 @@ class TabContainer extends UIBase {
     });
     b.onFillColor = color(32);
     b.offBorderColor = color(64);
-    
+
     b.label = child.label;
     //b.borderColor = child.borderColor;
     tabBar.addChild(b);
@@ -343,7 +348,7 @@ class Button extends UIBase {
   public static final int TOUCH_DOWN = 0; // triggers on touch
   public static final int TOUCH_UP   = 1; // triggers on touch
   public static final int TOGGLE     = 2; // triggers on touch, toggle state
-  private final Runnable onPressCallback;
+  private Runnable onPressCallback;
 
   color onBorderColor = color(96);
   color offBorderColor = color(64);
@@ -354,7 +359,7 @@ class Button extends UIBase {
   
   float recentTouchCountdown = 0;
   float releaseFadeSecs = 0.5;
-
+  float oscValue = 0.0;
 
   int buttonMode = 0;
   Boolean toggleState = false;
@@ -395,15 +400,22 @@ class Button extends UIBase {
       // ensure screen redraw while button fading
       int pendingFrameCount;
       if (buttonMode == TOGGLE) {
+        if (oscEnabled) {
+          queueOscSend(toggleState? 1.0:0.0, oscId);
+        }
         if (toggleState) {
           pendingFrameCount = 1;
+
         }
         else {
           pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
         }
       }
       else if (buttonMode == TOUCH_DOWN) {
-          pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
+        if (oscEnabled) {
+          queueOscSend(1.0, oscId);
+        }
+        pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
       }
       else {
         pendingFrameCount = 0;
@@ -426,7 +438,10 @@ class Button extends UIBase {
         if(this.onPressCallback != null) {
           this.onPressCallback.run();
         }
-
+        
+        if (oscEnabled) {
+          queueOscSend(1.0, oscId);
+        }
         // ensure screen redraw while button fading
         int pendingFrameCount = (int)(gTargetFrameRate * releaseFadeSecs);
         recentTouchCountdown = pendingFrameCount;
@@ -471,16 +486,86 @@ class Button extends UIBase {
     drawLabel();
     //super.draw();
   }
+  
+  public void setOnPressCallback(Runnable callback) {
+    this.onPressCallback = callback;
+  } 
 }
 
+
+class ButtonGroup extends UIBase {
+  int activeButtonIndex = -1;
+  private Runnable onStateChangeCallback;
+  public static final int BUTTONMODE_TRIGGER = 0;
+  public static final int BUTTONMODE_MUTEX = 1;
+  public static final int BUTTONMODE_TOGGLE = 2;
+  int buttonMode = BUTTONMODE_TRIGGER;
+  
+  
+  public ButtonGroup(String oscId, int buttonMode, int layout) {
+    super(oscId, layout);
+    this.layout = layout;
+    this.buttonMode = buttonMode;
+  }
+  
+  void setActiveButton(int index) {
+    println("setActiveButton:", index);
+    if (index < children.size()) {
+      this.activeButtonIndex = index;
+      for (int i=0; i<children.size(); i++) {
+        Button button = (Button)children.get(i);
+        if (this.activeButtonIndex == i) {
+          button.toggleState = true;
+        }
+        else {
+          button.toggleState = false;
+        }
+      }
+      recalcLayout();
+    }
+  }
+  
+  @Override
+  void addChild(UIBase child) {
+    Button newButton = (Button)child;
+    int tabIndex = children.size();
+    // Set up the button
+    if (buttonMode == BUTTONMODE_MUTEX || buttonMode == BUTTONMODE_TOGGLE) {
+      newButton.buttonMode = Button.TOGGLE;
+    }
+    else {
+      newButton.buttonMode = Button.TOUCH_DOWN;      
+    }
+    
+    //if (buttonMode == BUTTONMODE_MUTEX) {
+      newButton.setOnPressCallback(new Runnable() {
+        public void run() {
+          setActiveButton(tabIndex);
+          if (onStateChangeCallback != null) {
+            onStateChangeCallback.run();
+          }
+        }
+      });
+    //}
+    children.add(newButton);
+    recalcLayout();
+  }
+  
+  public void setOnStateChangeCallback (Runnable callback) {
+    this.onStateChangeCallback = callback;
+  }
+
+}
 
 class Slider extends UIBase {
   public static final int VERTICAL = 0;
   public static final int HORIZONTAL = 1;
   int direction = 0;
   float value = 0.0;
+  float pValue = 0.0;
   float rangeMin = 0.0;
   float rangeMax = 1.0;
+  String numberFormat = "%.3f";
   float hpad = 200; // used with horizontal slider only
   float vpad = 200; // used with vertical slider only
   color sliderColor = color(0, 255, 32, 192);
@@ -490,6 +575,7 @@ class Slider extends UIBase {
   private float sliderMaxY = 1.0;
   float sliderHandleSize = 25;
   int primaryTouchId = -1;
+  Boolean forceInteger = false; 
  
   public Slider(String oscId, int direction) {
     super(oscId, UIBase.LAYOUT_NONE);
@@ -516,8 +602,17 @@ class Slider extends UIBase {
       drawHorizontal();
     }
     strokeWeight(1);
-    drawBounds();
+    if (borderVisible) {
+      drawBounds();
+    }
     drawLabel();
+    // this is to allow sending if the slider is changed by one of the 
+    // buttons instead of a direct touch event
+    if (value != pValue && oscEnabled) {
+      float mappedValue = rangeMin + value * (rangeMax - rangeMin);
+      queueOscSend(mappedValue, oscId);
+      pValue = value;
+    }
   }
 
   @Override
@@ -533,12 +628,12 @@ class Slider extends UIBase {
     }
     else {
       if (useLabel) {
-        text(info, this.bounds.x+pad*2, this.bounds.y+pad*2);          
+        text(info, this.bounds.x+pad*2, this.bounds.y+pad*1);          
       }
       else {
         text(info, this.bounds.x+pad, this.bounds.y+pad);                  
       }
-    }
+    }   
   }
 
   void drawHorizontal() {
@@ -560,7 +655,9 @@ class Slider extends UIBase {
     textAlign(BASELINE, CENTER);
     textSize(LARGETEXT*1.2);
     fill(0,255,0);
-    String valText = String.format("%.3f", this.value);
+    float mappedValue = rangeMin + value * (rangeMax-rangeMin);
+
+    String valText = String.format(numberFormat, mappedValue);
     text(valText, bounds.x + pad*4, cy);
   }
 
@@ -583,7 +680,8 @@ class Slider extends UIBase {
     textAlign(BASELINE);
     textSize(LARGETEXT*1.2);
     fill(0,255,0);
-    String valText = String.format("%.3f", this.value);
+    float mappedValue = rangeMin + value * (rangeMax-rangeMin);
+    String valText = String.format("%.3f", mappedValue);
     text(valText, cx - textWidth(valText)/2, bounds.y + vpad/2 + LARGETEXT);
   }
 
@@ -597,15 +695,25 @@ class Slider extends UIBase {
       if (touchPositions[id] != null) {
         primaryTouchId = id;
         PVector p = touchPositions[id];
-
+        float range = rangeMax - rangeMin;
         if (this.direction == VERTICAL) {
           float ny = (p.y - this.bounds.y - vpad*1) / (sliderMaxY-sliderMinY);
           value = 1.0 - max(0.0, min(1.0, ny));
+          value = forceInteger? ((float)Math.floor(value*range) / range) : value;
         }
         else {
-        float nx = (p.x - this.bounds.x - hpad*1) / (sliderMaxX-sliderMinX);
-        value = max(0.0, min(1.0, nx));
+          float nx = (p.x - this.bounds.x - hpad*1) / (sliderMaxX-sliderMinX);
+          value = max(0.0, min(1.0, nx));
+          value = forceInteger? ((float)Math.floor(value*range) / range) : value;
         }
+
+            
+        if (value != pValue && oscEnabled) {
+          float mappedValue = rangeMin + value * (rangeMax - rangeMin);
+          queueOscSend(mappedValue, oscId);
+          pValue = value;
+        }
+
       }
       else {
         primaryTouchId = -1;
@@ -613,6 +721,237 @@ class Slider extends UIBase {
     }
   }
 }
+
+
+class Label extends UIBase {
+  public static final int HALIGN_LEFT = 0;
+  public static final int HALIGN_CENTER = 1;
+  public static final int HALIGN_RIGHT = 2;
+  int halign = 0;
+  float textPosX, textPosY;
+  public Label(String label) {
+    super("label");
+    this.label = label;
+  }
+  
+  @Override
+  void draw() {
+    //super.draw();
+    textAlign(BASELINE, CENTER);
+    textSize(LARGETEXT);
+    fill(textColor);
+    text(label, textPosX, textPosY);
+  }
+  
+  @Override
+  void recalcLayout() {
+    super.recalcLayout();
+    textSize(LARGETEXT);
+    float textw = textWidth(label);
+    textPosY = bounds.y + (bounds.h/2);
+    if(halign == HALIGN_LEFT) {
+      textPosX = bounds.x + pad;
+    }
+    else if (halign == HALIGN_CENTER) {
+      textPosX = bounds.x + bounds.w/2;
+    }
+    else if (halign == HALIGN_RIGHT) {
+      textPosX = bounds.x + bounds.w - pad - textw;
+    }
+  }
+}
+
+class DragNumber extends UIBase {
+  float initialValue;
+  float currentValue;
+  PVector initialTouchPoint;
+  boolean isAdjusting = false;
+  float rangeMin = 0.0;
+  float rangeMax = 1.0;
+  float sensitivity = 0.1;
+ 
+  DragNumber(String oscId, String label) {
+    super(oscId, UIBase.LAYOUT_HORIZONTAL);
+    this.initialValue = 0.0;
+    this.currentValue = 0.0;
+    this.label = label;
+    this.borderVisible = false;
+    addChild(new Label(label));
+    
+    DragNumberControl numCtrl = new DragNumberControl(oscId);
+    numCtrl.borderVisible = true;    
+    addChild(numCtrl);
+  }
+}
+
+
+class DragNumberControl extends UIBase {
+  float initialValue;
+  float currentValue;
+  PVector initialTouchPoint;
+  PVector adjustDelta = new PVector(0,0);
+  boolean isAdjusting = false;
+  boolean isCalibrating = false;
+  float rangeMin = 0.0;
+  float rangeMax = 1.0;
+  float sensitivity = 0.1;
+  //float precisionDigits = 8;
+  int numDecimals = 3;
+  int numInts = 5;
+  int precisionIndex = 2;
+  float adjustIncrement = 0.1;
+  float precisionCtlRangeX = bounds.w;
+   //float precisionOffset = 0.0;
+
+  public DragNumberControl(String oscId) {
+    super(oscId);
+    this.initialValue = 0.0;
+    this.currentValue = 0.0;
+    this.textColor = color(0, 255,0);
+  }
+
+  void draw() {
+    int minInterval = 1;
+    int maxInterval = 60;
+    int incrementIntervalFrames = (int)map(Math.abs(adjustDelta.y), 0.0, 1.0, maxInterval, minInterval);
+    //int incrementInterval = maxInterval - (int)min(maxInterval-1, max(minInterval, 60*abs(adjustDelta.y)));
+    
+    if (isAdjusting) {
+      if (frameCount % incrementIntervalFrames == 0) {
+        float adjustDir = adjustDelta.y < 0? -1.0: 1.0;
+        currentValue -= adjustIncrement * adjustDir;
+      }    
+    }
+    
+    // draw adjust delta
+    float dim = bounds.h - pad*2;
+    float cx = bounds.x+pad+dim/2;
+    float cy = bounds.y+pad+dim/2;
+    stroke(borderColor);
+    noFill();
+    ellipse(cx, cy, dim, dim);
+    if(isAdjusting || isCalibrating) {
+      strokeWeight(8);
+      stroke(255,10,10);
+      line(cx, cy, cx, cy+adjustDelta.y*dim/2);
+      stroke(10,10,255);
+      line(cx, cy, cx+adjustDelta.x*dim/2, cy);
+      
+    }
+    else {
+      ellipse(cx,cy,4,4);
+    }
+    
+    fill(textColor);
+    
+    // debugging
+    textSize(SMALLTEXT);
+    text(String.format("%d", incrementIntervalFrames), bounds.x+pad, bounds.y+pad);
+    text(String.format("%.3f", adjustIncrement), bounds.x+pad, bounds.y+pad*2 + SMALLTEXT);
+    
+    
+    textSize(LARGETEXT*1.5);
+    String format = String.format("%% .%df", numDecimals);
+    String valueText = String.format(format, currentValue);
+    float textw = textWidth(valueText);
+    float xpos = bounds.x + bounds.w - pad*2 - textw;
+    float ypos = bounds.y + bounds.h/2;
+    
+    
+    fill(textColor);
+    textAlign(BASELINE, CENTER);
+    text(valueText, xpos, ypos);
+
+    stroke(borderColor);
+    drawBounds();
+
+    
+    float charWidth = textWidth("3");
+    
+    float x = bounds.x+bounds.w-pad*2 - charWidth;
+    
+    for (int i=0; i< numDecimals+numInts; i++) {
+      float precisIndicatorY = bounds.y + bounds.h/2 + LARGETEXT - 8;
+      float precisIndicatorX1 = x+4;
+      float precisIndicatorX2 = x + charWidth-4;
+      if (i == precisionIndex) {
+        stroke(0, 255,0);
+        line(precisIndicatorX1, precisIndicatorY, precisIndicatorX2, precisIndicatorY);
+      }
+      else {
+        stroke(borderColor);
+      }
+      
+      if (i == numDecimals-1) {
+        x -= charWidth * 1.5;
+      }
+      else {
+        x -= charWidth;
+      }
+    }
+    
+  }
+  
+  @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    
+    TouchEvent.Pointer p = getTouchById(id);
+    if (! this.bounds.containsPoint(p.x, p.y)) {
+      return;
+    }
+    if (p.x < bounds.x+bounds.w/4) {
+      isCalibrating = true;
+    }
+    else {
+      isAdjusting = true;
+    }
+    initialValue = currentValue;
+    initialTouchPoint = touchPositions[id].copy();
+  }
+
+  @Override
+  public void touchEnded(int id) {
+    super.touchEnded(id);
+    isAdjusting = false;
+    isCalibrating = false;
+    adjustDelta.set(0,0);
+  }
+
+  @Override
+  public void touchMoved(MotionEvent e) {
+    super.touchMoved(e);
+    if (touchIds.size() > 0) {
+      int id = touchIds.get(0);
+      if (touchPositions[id] != null) {
+        PVector p = touchPositions[id].copy();
+        if (isAdjusting) {
+          adjustDelta = p.sub(initialTouchPoint);
+          adjustDelta.div(bounds.h/2);
+          adjustDelta = adjustDelta.mag() > 1.0? adjustDelta.limit(1.0): adjustDelta;
+        }
+        else if (isCalibrating) {
+          float deltaX = initialTouchPoint.x - p.x;
+          precisionIndex = (int)Math.floor(deltaX/bounds.w * (numDecimals+numInts));
+          precisionIndex = Math.max(0, Math.min(precisionIndex, numDecimals+numInts-1));
+          float adjustPow = precisionIndex-numDecimals;
+          adjustIncrement = (float)Math.pow(10, adjustPow);
+          // 4 ->  1
+          // 3 ->  0
+          // 2 -> -1
+          // 1 -> -2
+          // 0 -> -3
+          println("precision index: ", precisionIndex, adjustIncrement);
+        }
+        
+      }
+    }
+  }
+
+
+} // END DragNumberControl
+
+
 
 
 class Touch10 extends UIBase {
@@ -716,14 +1055,12 @@ class Touch10 extends UIBase {
 }
 
 
-class HeliosControl {
-  // TODO - actually shouldnt be a class, just a function `UIBase makeHeliosControl(...)`
-}
-
 
 class XYPad extends UIBase {
   public static final int CARTESIAN = 0;
   public static final int POLAR = 1;
+  public static final int KNOB = 2;
+  
   public static final int ORIGIN_BOTTOMRIGHT = 0;
   public static final int ORIGIN_CENTER = 1;
   
@@ -736,8 +1073,8 @@ class XYPad extends UIBase {
   UIBase buttonPanel;
 
 
-  public XYPad(int _x, int _y, int _w, int _h, String _oscId, int _coordSys) {
-    super(_x, _y, _w, _h, _oscId, UIBase.LAYOUT_NONE);
+  public XYPad(String oscId, int _coordSys) {
+    super(0, 0, 100, 100, oscId, UIBase.LAYOUT_NONE);
     this.coordSys = _coordSys;
     this.pad = 64;
     tx = 0.0;
@@ -774,9 +1111,11 @@ class XYPad extends UIBase {
     float ctly = this.bounds.y+this.bounds.h - dim - pad;
     float ctlcx = ctlx + dim/2;
     float ctlcy = ctly + dim/2;
-
-    strokeWeight(1);
-    drawBounds();
+    
+    if (borderVisible) {
+      strokeWeight(1);
+      drawBounds();
+    }
     buttonPanel.draw();
     
     //drawGradsX(ctlx, ctlx+dim, ctly,     0, 3, -1);
@@ -808,10 +1147,10 @@ class XYPad extends UIBase {
       tr = (float)Math.sqrt(cx*cx+cy*cy);
       
       if (ptx != tx || pty != tx) {
-        oscSend(tx, oscId+"x");
-        oscSend(ty, oscId+"y");
-        oscSend(ta, oscId+"a");
-        oscSend(tr, oscId+"r");
+        queueOscSend(tx, oscId+"/x");
+        queueOscSend(ty, oscId+"/y");
+        queueOscSend(ta, oscId+"/a");
+        queueOscSend(tr, oscId+"/r");
         ptx = tx;
         pty = ty;
       }
@@ -821,27 +1160,22 @@ class XYPad extends UIBase {
       p = this.pos;
     }
 
-    // crosshair
-    if (this.bounds.containsPoint(p.x, p.y)) {
-      strokeWeight(1);
-      stroke(0,255,32,128);
-      line(p.x, ctly, p.x, ctly+dim-1);
-      line(ctlx, p.y, ctlx+dim-1, p.y);
-    }
 
     float dotx = max(ctlx, min(ctlx+dim, p.x));
     float doty = max(ctly, min(ctly+dim, p.y));
 
-    // touch point
-    noStroke();
-    fill(0,255,32);
-    if (touchIds.size() > 0) {
-      ellipse(dotx, doty, 100, 100);
+    if (coordSys == CARTESIAN || coordSys == POLAR) {
+      // touch point
+      noStroke();
+      fill(0,255,32);
+      if (touchIds.size() > 0) {
+        ellipse(dotx, doty, 100, 100);
+      }
+      else {
+        ellipse(dotx, doty, 20, 20);
+      }
     }
-    else {
-      ellipse(dotx, doty, 20, 20);
-    }
-
+    
     // unit circle
     strokeWeight(1);
     //stroke(128);
@@ -852,12 +1186,20 @@ class XYPad extends UIBase {
     line(ctlx+dim/2, ctly, ctlx+dim/2, ctly+dim);
     line(ctlx, ctly+dim/2, ctlx+dim, ctly+dim/2);
     
-    stroke(192);
-    drawGraduations(ctlx, ctlx+dim, ctly,  0, 3, true, -1);
-    drawGraduations(ctlx, ctlx+dim, ctly+dim, 0, 3, true, 1);  
-    drawGraduations(ctly, ctly+dim, ctlx,  0, 3, false, 1);
-    drawGraduations(ctly, ctly+dim, ctlx+dim, 0, 3, false, -1);
-
+    if (coordSys == CARTESIAN) {
+      // crosshair
+      if (this.bounds.containsPoint(p.x, p.y)) {
+        strokeWeight(1);
+        stroke(0,255,32,128);
+        line(p.x, ctly, p.x, ctly+dim-1);
+        line(ctlx, p.y, ctlx+dim-1, p.y);
+      }
+      stroke(192);
+      drawGraduations(ctlx, ctlx+dim, ctly,  0, 3, true, -1);
+      drawGraduations(ctlx, ctlx+dim, ctly+dim, 0, 3, true, 1);  
+      drawGraduations(ctly, ctly+dim, ctlx,  0, 3, false, 1);
+      drawGraduations(ctly, ctly+dim, ctlx+dim, 0, 3, false, -1);
+    }
     stroke(0, 255,32);
     strokeWeight(8);
     float ang = ta + PI*1.5;
@@ -869,10 +1211,14 @@ class XYPad extends UIBase {
     }
     
     PVector pn = new PVector(p.x, p.y).sub(new PVector(ctlcx, ctlcy)).normalize().mult(dim/2);
-    // angle radius line
-    strokeWeight(4);
-    stroke(0,255,32);
-    line(ctlcx, ctlcy, dotx, doty);
+    
+    if (coordSys == POLAR) {
+      // angle radius line
+      strokeWeight(4);
+      stroke(0,255,32);
+      line(ctlcx, ctlcy, dotx, doty);
+    }
+    
     stroke(240);
     fill(255);
     ellipse(ctlcx+pn.x, ctlcy+pn.y, 16, 16);
@@ -887,7 +1233,7 @@ class XYPad extends UIBase {
 
     String xytext = String.format("[%.2f, %.2f]", tx, ty);
     String artext = String.format("[%.2f, %.2f]", degrees(ta), tr);
-    text(xytext, bounds.x+bounds.w/2+0, bounds.y+60);
+    text(xytext, bounds.x+bounds.w/3+0, bounds.y+60);
     text(artext, bounds.x+bounds.w - 40 - textWidth(artext), bounds.y+60);
 
   }
