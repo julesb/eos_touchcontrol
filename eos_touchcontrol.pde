@@ -303,9 +303,7 @@ UIBase makeHeliosDACPanel() {
       }
     });
 
-    DragNumber dn1 = new DragNumber("dragnum1", "Drag Number 1");
-    DragNumber dn2 = new DragNumber("dragnum2", "Drag Number 2");
-    DragNumber dn3 = new DragNumber("dragnum3", "Drag Number 3");
+    DragNumber2 dn2 = new DragNumber2("dragnum2", "DragNum Type 2");
 
     UIBase spacer = new UIBase("spacer", UIBase.LAYOUT_NONE);
     spacer.borderVisible = false;
@@ -314,10 +312,11 @@ UIBase makeHeliosDACPanel() {
     dacPanel.addChild(intensitySlider);
     dacPanel.addChild(ppsSlider);
     dacPanel.addChild(ppsButtons);
-    dacPanel.addChild(dn1);
+    //dacPanel.addChild(dn1);
+    //dacPanel.addChild(dn2);
+    dacPanel.addChild(spacer);
     dacPanel.addChild(dn2);
-    dacPanel.addChild(dn3);
-    //dacPanel.addChild(spacer);
+    dacPanel.addChild(spacer);
     
   //UIBase panel2 = makeTransformPanel();
   ////UI Base panel3 = new UIBase(oscId, UIBase.LAYOUT_VERTICAL);
@@ -332,39 +331,17 @@ UIBase makeHeliosDACPanel() {
 UIBase makeHeliosTransformPanel() {
   String oscId = "helios/transform";
   UIBase panel = new UIBase(oscId, UIBase.LAYOUT_VERTICAL);
-    Slider scaleSlider = new Slider(String.format("%s/scale", oscId), Slider.HORIZONTAL);
-    scaleSlider.label = "Scale";
-    scaleSlider.rangeMin = 0.001;
-    scaleSlider.rangeMax = 200;
-    scaleSlider.numberFormat = "%.3f";
-    scaleSlider.value = 0.2;
-    scaleSlider.oscEnabled = true;
+    DragNumber scaleNum = new DragNumber(String.format("%s/scale", oscId), "Scale", 0.2, 0.001, 100);
+    scaleNum.oscEnabled = true;
 
-    Slider translateXSlider = new Slider(String.format("%s/translatex", oscId), Slider.HORIZONTAL);
-    translateXSlider.label = "Translate X";
-    translateXSlider.rangeMin = -1024;
-    translateXSlider.rangeMax = 1024;
-    translateXSlider.numberFormat = "%.0f";
-    translateXSlider.value = map(-50, translateXSlider.rangeMin, translateXSlider.rangeMax, 0, 1); 
-    translateXSlider.oscEnabled = true;
+    DragNumber translateXNum = new DragNumber(String.format("%s/translatex", oscId), "Translate X", -50.0, -1024, 1024);
+    translateXNum.oscEnabled = true;
 
-    Slider translateYSlider = new Slider(String.format("%s/translatey", oscId), Slider.HORIZONTAL);
-    translateYSlider.label = "Translate Y";
-    translateYSlider.rangeMin = -1024;
-    translateYSlider.rangeMax = 1024;
-    translateYSlider.numberFormat = "%.0f";
-    //translateYSlider.value = -677;
-    translateYSlider.value = map(-677, translateYSlider.rangeMin, translateYSlider.rangeMax, 0, 1); 
-    translateYSlider.oscEnabled = true;
+    DragNumber translateYNum = new DragNumber(String.format("%s/translatey", oscId), "Translate Y", -677.0, -1024, 1024);
+    translateYNum.oscEnabled = true;
 
-    Slider rotateSlider = new Slider(String.format("%s/rotate", oscId), Slider.HORIZONTAL);
-    rotateSlider.label = "Rotate";
-    rotateSlider.rangeMin = -180;
-    rotateSlider.rangeMax = 180;
-    rotateSlider.numberFormat = "%.0f";
-    rotateSlider.value = 0.5;
-    rotateSlider.oscEnabled = true;
-
+    DragNumber rotateNum = new DragNumber(String.format("%s/rotate", oscId), "Rotate", 0.0, -180, 180);
+    rotateNum.oscEnabled = true;
     
     ButtonGroup flipButtons = new ButtonGroup("flip", ButtonGroup.BUTTONMODE_TOGGLE, UIBase.LAYOUT_HORIZONTAL);
     Button bflipx = new Button("flipx", Button.TOGGLE);
@@ -377,12 +354,14 @@ UIBase makeHeliosTransformPanel() {
     UIBase spacer = new UIBase("spacer", UIBase.LAYOUT_NONE);
     spacer.borderVisible = false;
 
-    panel.addChild(scaleSlider);
-    panel.addChild(translateXSlider);
-    panel.addChild(translateYSlider);
-    panel.addChild(rotateSlider);
+    panel.addChild(scaleNum);
+    panel.addChild(translateXNum);
+    panel.addChild(translateYNum);
+    panel.addChild(rotateNum);
     panel.addChild(flipButtons);
     //panel.addChild(dn1);
+    panel.addChild(spacer);
+    panel.addChild(spacer);
     panel.addChild(spacer);
     
     return panel;
