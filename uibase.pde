@@ -55,10 +55,7 @@ class UIBase {
         h = this.bounds.h - pad*2;
         for (int i=0; i<nchild; i++) {
           UIBase child = children.get(i);
-          child.bounds.x = this.bounds.x + pad + i * (w+pad);
-          child.bounds.y = this.bounds.y+pad;
-          child.bounds.w = w;
-          child.bounds.h = h;
+          child.bounds.set(this.bounds.x + pad + i * (w+pad), this.bounds.y+pad, w, h);
           child.recalcLayout();
         }
       }
@@ -67,10 +64,7 @@ class UIBase {
         h = (this.bounds.h - pad*(nchild+1)) / nchild;
         for (int i=0; i<nchild; i++) {
           UIBase child = children.get(i);
-          child.bounds.x = this.bounds.x+pad;
-          child.bounds.y = this.bounds.y + pad + i * (h+pad);
-          child.bounds.w = w;
-          child.bounds.h = h;
+          child.bounds.set(this.bounds.x+pad, this.bounds.y + pad + i * (h+pad), w, h);
           child.recalcLayout();
         }
       }
@@ -85,10 +79,7 @@ class UIBase {
           float x = this.bounds.x + pad + (i % gridCols) * (w+pad);
           float y = this.bounds.y + pad + (i / gridCols) * (h+pad);
           UIBase child = children.get(i);
-          child.bounds.x = x;
-          child.bounds.y = y;
-          child.bounds.w = w;
-          child.bounds.h = h;
+          child.bounds.set(x, y, w, h);
         }
       }
     }
@@ -277,22 +268,26 @@ class TabContainer extends UIBase {
 
   @Override
   void recalcLayout() {
-    tabBar.bounds.x = bounds.x;
-    tabBar.bounds.y = bounds.y;
-    tabBar.bounds.w = bounds.w;
-    tabBar.bounds.h = tabBarHeight;
+    tabBar.bounds.set(bounds.x, bounds.y, bounds.w, tabBarHeight);
+    //tabBar.bounds.x = bounds.x;
+    //tabBar.bounds.y = bounds.y;
+    //tabBar.bounds.w = bounds.w;
+    //tabBar.bounds.h = tabBarHeight;
     tabBar.recalcLayout();
-
-    contentArea.bounds.x = bounds.x;
-    contentArea.bounds.y = bounds.y + tabBarHeight+pad;
-    contentArea.bounds.w = bounds.w;
-    contentArea.bounds.h = bounds.h - tabBarHeight-pad;
+    contentArea.bounds.set(bounds.x, bounds.y + tabBarHeight+pad,
+                           bounds.w, bounds.h - tabBarHeight-pad);
+    //contentArea.bounds.x = bounds.x;
+    //contentArea.bounds.y = bounds.y + tabBarHeight+pad;
+    //contentArea.bounds.w = bounds.w;
+    //contentArea.bounds.h = bounds.h - tabBarHeight-pad;
     if (contentArea.children.size() > 0) {
       UIBase activeTab = contentArea.children.get(activeTabIndex);
-      activeTab.bounds.x = contentArea.bounds.x;
-      activeTab.bounds.y = contentArea.bounds.y;
-      activeTab.bounds.w = contentArea.bounds.w;
-      activeTab.bounds.h = contentArea.bounds.h;
+      activeTab.bounds.set(contentArea.bounds.x, contentArea.bounds.y,
+                           contentArea.bounds.w, contentArea.bounds.h);
+      //activeTab.bounds.x = contentArea.bounds.x;
+      //activeTab.bounds.y = contentArea.bounds.y;
+      //activeTab.bounds.w = contentArea.bounds.w;
+      //activeTab.bounds.h = contentArea.bounds.h;
       activeTab.recalcLayout();
     }
     
@@ -708,13 +703,11 @@ class Slider extends UIBase {
           value = forceInteger? ((float)Math.floor(value*range) / range) : value;
         }
 
-            
         if (value != pValue && oscEnabled) {
           float mappedValue = rangeMin + value * (rangeMax - rangeMin);
           queueOscSend(mappedValue, oscId);
           pValue = value;
         }
-
       }
       else {
         primaryTouchId = -1;
@@ -827,13 +820,10 @@ class DragNumberControl extends UIBase {
   int numInts = 5;
   int precisionIndex = 2;
   double adjustIncrement = 0.1;
-  //float precisionCtlRangeX = bounds.w;
   Rect[] digitHitboxes;
 
   public DragNumberControl(String oscId) {
     super(oscId);
-    //this.initialValue = 0.0;
-    //this.currentValue = 0.0;
     this.textColor = color(0, 255,0);
     digitHitboxes = makeDigitHitboxes();
   }
@@ -941,8 +931,6 @@ class DragNumberControl extends UIBase {
           currentValue = initialValue - (int)(deltaY * sensitivity) * adjustIncrement;
           currentValue = quantize(currentValue, adjustIncrement);
           currentValue = Math.max(rangeMin, Math.min(currentValue, rangeMax));
-          //BigDecimal bd = new BigDecimal(currentValue);
-          //println(String.format("touchMoved: %s ==> %s", oscId, bd.toPlainString()));
         }
       }
     }
@@ -1250,10 +1238,11 @@ class XYPad extends UIBase {
   @Override
   void recalcLayout() {
     super.recalcLayout();
-    buttonPanel.bounds.x = bounds.x+pad;
-    buttonPanel.bounds.y = bounds.y+pad/4;
-    buttonPanel.bounds.w = bounds.w/4;
-    buttonPanel.bounds.h = 64;
+    buttonPanel.bounds.set(bounds.x+pad, bounds.y+pad/4, bounds.w/4, 64);
+    //buttonPanel.bounds.x = bounds.x+pad;
+    //buttonPanel.bounds.y = bounds.y+pad/4;
+    //buttonPanel.bounds.w = bounds.w/4;
+    //buttonPanel.bounds.h = 64;
     buttonPanel.recalcLayout();
   }
   

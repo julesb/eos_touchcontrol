@@ -450,7 +450,7 @@ class Rect {
     this.h = _h;
   }
   
-  public void set(int _x, int _y, int _w, int _h) {
+  public void set(float _x, float _y, float _w, float _h) {
     this.x = _x;
     this.y = _y;
     this.w = _w;
