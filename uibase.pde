@@ -1,3 +1,4 @@
+import java.math.BigDecimal;
 
 class UIBase {
   public int mode;
@@ -761,6 +762,29 @@ class Label extends UIBase {
   }
 }
 
+class DragNumber2 extends UIBase {
+  float initialValue;
+  float currentValue;
+  PVector initialTouchPoint;
+  boolean isAdjusting = false;
+  float rangeMin = 0.0;
+  float rangeMax = 1.0;
+  float sensitivity = 0.1;
+ 
+  DragNumber2(String oscId, String label) {
+    super(oscId, UIBase.LAYOUT_HORIZONTAL);
+    this.initialValue = 0.0;
+    this.currentValue = 0.0;
+    this.label = label;
+    this.borderVisible = false;
+    addChild(new Label(label));
+    
+    DragNumberControl2 numCtrl = new DragNumberControl2(oscId);
+    numCtrl.borderVisible = true;    
+    addChild(numCtrl);
+  }
+}
+
 class DragNumber extends UIBase {
   float initialValue;
   float currentValue;
@@ -770,86 +794,51 @@ class DragNumber extends UIBase {
   float rangeMax = 1.0;
   float sensitivity = 0.1;
  
-  DragNumber(String oscId, String label) {
+  DragNumber(String oscId, String label, double value, double rangeMin, double rangeMax) {
     super(oscId, UIBase.LAYOUT_HORIZONTAL);
     this.initialValue = 0.0;
-    this.currentValue = 0.0;
+    //this.currentValue = 0.0;
     this.label = label;
     this.borderVisible = false;
     addChild(new Label(label));
     
     DragNumberControl numCtrl = new DragNumberControl(oscId);
-    numCtrl.borderVisible = true;    
+    numCtrl.rangeMin = rangeMin;
+    numCtrl.rangeMax = rangeMax;
+    numCtrl.currentValue = value;
+    numCtrl.borderVisible = false;    
     addChild(numCtrl);
   }
 }
 
 
 class DragNumberControl extends UIBase {
-  float initialValue;
-  float currentValue;
+  double initialValue = 0.0;
+  double currentValue = 0.0;
+  double prevValue = 0.0;
   PVector initialTouchPoint;
   PVector adjustDelta = new PVector(0,0);
   boolean isAdjusting = false;
   boolean isCalibrating = false;
-  float rangeMin = 0.0;
-  float rangeMax = 1.0;
+  double rangeMin = 0.0;
+  double rangeMax = 1.0;
   float sensitivity = 0.1;
-  //float precisionDigits = 8;
   int numDecimals = 3;
   int numInts = 5;
   int precisionIndex = 2;
-  float adjustIncrement = 0.1;
-  float precisionCtlRangeX = bounds.w;
-   //float precisionOffset = 0.0;
+  double adjustIncrement = 0.1;
+  //float precisionCtlRangeX = bounds.w;
+  Rect[] digitHitboxes;
 
   public DragNumberControl(String oscId) {
     super(oscId);
-    this.initialValue = 0.0;
-    this.currentValue = 0.0;
+    //this.initialValue = 0.0;
+    //this.currentValue = 0.0;
     this.textColor = color(0, 255,0);
+    digitHitboxes = makeDigitHitboxes();
   }
 
   void draw() {
-    int minInterval = 1;
-    int maxInterval = 60;
-    int incrementIntervalFrames = (int)map(Math.abs(adjustDelta.y), 0.0, 1.0, maxInterval, minInterval);
-    //int incrementInterval = maxInterval - (int)min(maxInterval-1, max(minInterval, 60*abs(adjustDelta.y)));
-    
-    if (isAdjusting) {
-      if (frameCount % incrementIntervalFrames == 0) {
-        float adjustDir = adjustDelta.y < 0? -1.0: 1.0;
-        currentValue -= adjustIncrement * adjustDir;
-      }    
-    }
-    
-    // draw adjust delta
-    float dim = bounds.h - pad*2;
-    float cx = bounds.x+pad+dim/2;
-    float cy = bounds.y+pad+dim/2;
-    stroke(borderColor);
-    noFill();
-    ellipse(cx, cy, dim, dim);
-    if(isAdjusting || isCalibrating) {
-      strokeWeight(8);
-      stroke(255,10,10);
-      line(cx, cy, cx, cy+adjustDelta.y*dim/2);
-      stroke(10,10,255);
-      line(cx, cy, cx+adjustDelta.x*dim/2, cy);
-      
-    }
-    else {
-      ellipse(cx,cy,4,4);
-    }
-    
-    fill(textColor);
-    
-    // debugging
-    textSize(SMALLTEXT);
-    text(String.format("%d", incrementIntervalFrames), bounds.x+pad, bounds.y+pad);
-    text(String.format("%.3f", adjustIncrement), bounds.x+pad, bounds.y+pad*2 + SMALLTEXT);
-    
-    
     textSize(LARGETEXT*1.5);
     String format = String.format("%% .%df", numDecimals);
     String valueText = String.format(format, currentValue);
@@ -857,30 +846,45 @@ class DragNumberControl extends UIBase {
     float xpos = bounds.x + bounds.w - pad*2 - textw;
     float ypos = bounds.y + bounds.h/2;
     
+    stroke(borderColor);
+    //drawBounds();
     
     fill(textColor);
     textAlign(BASELINE, CENTER);
     text(valueText, xpos, ypos);
-
-    stroke(borderColor);
-    drawBounds();
-
     
+    // draw precision indicator
+    if (digitHitboxes != null && precisionIndex < digitHitboxes.length && precisionIndex >= 0) {
+      Rect hb = digitHitboxes[precisionIndex];
+      stroke(0, 255,0);
+      rect(hb.x+5, hb.y+hb.h/2+LARGETEXT*1.5/2, 20, 2);
+    }
+    
+    if (prevValue != currentValue) {
+      queueOscSend((float)currentValue, oscId);
+      prevValue = currentValue;
+    }
+    
+    //if (digitHitboxes != null) {
+    //  for(int i=0; i < digitHitboxes.length; i++) {
+    //    Rect r = digitHitboxes[i];
+    //    stroke(255,255,0);
+    //    noFill();
+    //    rect(r.x, r.y, r.w, r.h);
+    //  }
+    //}
+  }
+  
+  private Rect[] makeDigitHitboxes() {
+    textSize(LARGETEXT*1.5);
+    int numBoxes = numDecimals + numInts;
+    Rect[] boxes = new Rect[numBoxes];
     float charWidth = textWidth("3");
-    
     float x = bounds.x+bounds.w-pad*2 - charWidth;
-    
-    for (int i=0; i< numDecimals+numInts; i++) {
-      float precisIndicatorY = bounds.y + bounds.h/2 + LARGETEXT - 8;
-      float precisIndicatorX1 = x+4;
-      float precisIndicatorX2 = x + charWidth-4;
-      if (i == precisionIndex) {
-        stroke(0, 255,0);
-        line(precisIndicatorX1, precisIndicatorY, precisIndicatorX2, precisIndicatorY);
-      }
-      else {
-        stroke(borderColor);
-      }
+    for (int i=0; i< numBoxes; i++) {
+      float bx = x+2;
+      Rect r = new Rect(bx, bounds.y, charWidth-4, bounds.h);
+      boxes[i] = r;
       
       if (i == numDecimals-1) {
         x -= charWidth * 1.5;
@@ -889,7 +893,7 @@ class DragNumberControl extends UIBase {
         x -= charWidth;
       }
     }
-    
+    return boxes;
   }
   
   @Override
@@ -900,14 +904,22 @@ class DragNumberControl extends UIBase {
     if (! this.bounds.containsPoint(p.x, p.y)) {
       return;
     }
-    if (p.x < bounds.x+bounds.w/4) {
-      isCalibrating = true;
-    }
-    else {
-      isAdjusting = true;
-    }
-    initialValue = currentValue;
+
     initialTouchPoint = touchPositions[id].copy();
+
+    for(int i=0; i < digitHitboxes.length; i++) {
+      Rect hb = digitHitboxes[i];
+      if (hb.containsPoint(initialTouchPoint.x, initialTouchPoint.y)) {
+        precisionIndex = Math.max(0, Math.min(i, numDecimals+numInts-1));
+        float adjustPow = precisionIndex-numDecimals;
+        adjustIncrement = (float)Math.pow(10, adjustPow);
+        println("adjustIncrement", adjustIncrement);
+
+        initialValue = currentValue;
+        isAdjusting = true;
+        break;
+      }
+    }
   }
 
   @Override
@@ -915,7 +927,6 @@ class DragNumberControl extends UIBase {
     super.touchEnded(id);
     isAdjusting = false;
     isCalibrating = false;
-    adjustDelta.set(0,0);
   }
 
   @Override
@@ -924,30 +935,28 @@ class DragNumberControl extends UIBase {
     if (touchIds.size() > 0) {
       int id = touchIds.get(0);
       if (touchPositions[id] != null) {
-        PVector p = touchPositions[id].copy();
+        PVector p = touchPositions[id];
         if (isAdjusting) {
-          adjustDelta = p.sub(initialTouchPoint);
-          adjustDelta.div(bounds.h/2);
-          adjustDelta = adjustDelta.mag() > 1.0? adjustDelta.limit(1.0): adjustDelta;
+          float deltaY = p.y - initialTouchPoint.y;
+          currentValue = initialValue - (int)(deltaY * sensitivity) * adjustIncrement;
+          currentValue = quantize(currentValue, adjustIncrement);
+          currentValue = Math.max(rangeMin, Math.min(currentValue, rangeMax));
+          //BigDecimal bd = new BigDecimal(currentValue);
+          //println(String.format("touchMoved: %s ==> %s", oscId, bd.toPlainString()));
         }
-        else if (isCalibrating) {
-          float deltaX = initialTouchPoint.x - p.x;
-          precisionIndex = (int)Math.floor(deltaX/bounds.w * (numDecimals+numInts));
-          precisionIndex = Math.max(0, Math.min(precisionIndex, numDecimals+numInts-1));
-          float adjustPow = precisionIndex-numDecimals;
-          adjustIncrement = (float)Math.pow(10, adjustPow);
-          // 4 ->  1
-          // 3 ->  0
-          // 2 -> -1
-          // 1 -> -2
-          // 0 -> -3
-          println("precision index: ", precisionIndex, adjustIncrement);
-        }
-        
       }
     }
   }
 
+  @Override
+  void recalcLayout() {
+    super.recalcLayout();
+    digitHitboxes = makeDigitHitboxes();
+  }
+
+  private double quantize(double value, double roundTo) {
+      return Math.round(value / roundTo) * roundTo;
+  }
 
 } // END DragNumberControl
 
