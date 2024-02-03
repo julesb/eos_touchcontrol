@@ -18,6 +18,7 @@ class UIBase {
   
   String oscId;
   Boolean oscEnabled = false;
+  Boolean useDefaultOsc = false; // enable base class OSC messaging - touchePositions array
   String label;
   ArrayList<Integer> touchIds;
   PVector[] touchPositions = new PVector[10];
@@ -94,6 +95,9 @@ class UIBase {
       touchIds.add(id);
     }
     this.touchPositions[id] = new PVector(p.x, p.y);
+    if (useDefaultOsc) {
+      sendDefaultOsc();
+    }
 
     for (int i=0; i<children.size(); i++) {
       UIBase c = children.get(i);
@@ -110,6 +114,9 @@ class UIBase {
     }
     this.touchIds.remove(Integer.valueOf(id));
     touchPositions[id] = null;
+    if (useDefaultOsc) {
+      sendDefaultOsc();
+    }
   }
   
   public void touchMoved(MotionEvent e) {
@@ -138,8 +145,58 @@ class UIBase {
       catch(IllegalArgumentException ie) {
         continue;
       }
+      
       //println(String.format("pointer %d: (%f,%f)", me.getPointerId(p), me.getX(p), me.getY(p)));
     }
+    if (useDefaultOsc) {
+      sendDefaultOsc();
+    }
+
+  }
+
+  public void sendDefaultOsc() {
+    ArrayList<PVector> positions = new ArrayList();
+    for (int i = 0; i < touchPositions.length; i++) {
+      if (touchPositions[i] != null) {
+        positions.add(touchPositions[i]);
+      }
+    }
+    int numPoints = positions.size();
+    float[] points;
+    if (numPoints == 0) {
+      points = new float[]{ 0, 0, 0, 0, 0 };
+    }
+    else {
+      points = new float[numPoints*5];
+      //points = new float[(numPoints+1)*5];  // plus one for center blank point
+      
+      int idx = 0;
+      //points[idx++] = 0.0f;
+      //points[idx++] = 0.0f;
+      //points[idx++] = 0.0f;
+      //points[idx++] = 0.0f;
+      //points[idx++] = 0.0f;      
+     
+      float ar = bounds.w / bounds.h;
+      for (PVector p : positions) {
+        float nx = (p.x - bounds.x) / bounds.w;
+        float ny = (p.y - bounds.y) / bounds.h;
+        nx = (nx-0.5) * 2.0;
+        ny = (ny-0.5) * 2.0;
+        nx *= -1.0;
+        //ny *= -1.0;
+        nx *= ar;
+        
+        points[idx++] = nx;
+        points[idx++] = ny;
+        points[idx++] = 1.0f;
+        points[idx++] = 1.0f;
+        points[idx++] = 1.0f;      
+      }
+    
+    }
+    
+    queueOscSendArray(points, oscId + "/points");
   }
 
   public void drawBounds() {
@@ -223,6 +280,8 @@ class UIBase {
     return new PVector(nx, ny);
   }
   
+  public void setValue(Object value) {
+  }
 
 
 } // End UIBase
@@ -255,14 +314,14 @@ class TabContainer extends UIBase {
         setActiveTab(tabIndex);
       }
     });
+    b.requireSingleTouch = true;
     b.onFillColor = color(32);
     b.offBorderColor = color(64);
-
     b.label = child.label;
     //b.borderColor = child.borderColor;
     tabBar.addChild(b);
     tabBar.recalcLayout();
-    contentArea.recalcLayout();
+    //contentArea.recalcLayout();
     recalcLayout();
   }
 
@@ -359,6 +418,7 @@ class Button extends UIBase {
 
   int buttonMode = 0;
   Boolean toggleState = false;
+  Boolean requireSingleTouch = false;
 
   public Button(int x, int y, int w, int h, String oscId, int mode, Runnable onPressCallback) {
     super(x, y, w, h, oscId, UIBase.LAYOUT_NONE);
@@ -379,6 +439,10 @@ class Button extends UIBase {
   @Override
   public void touchStarted(int id) {
     super.touchStarted(id);
+    if (requireSingleTouch && touches.length != 1) {
+      return;
+    }
+    
     if (buttonMode == TOGGLE) {
       toggleState = ! toggleState;
     }
@@ -450,6 +514,14 @@ class Button extends UIBase {
   }
 
   @Override
+  public void setValue(Object value) {
+    float floatValue = (float)value;
+        if (buttonMode == TOGGLE) {
+          toggleState = floatValue == 0.0? false: true;
+    }
+  }
+    
+  @Override
   public void drawLabel() {
       fill(textColor);
       String info = this.label;
@@ -504,17 +576,29 @@ class ButtonGroup extends UIBase {
     this.buttonMode = buttonMode;
   }
   
+  @Override
+  void draw() {
+    super.draw();
+    //children.get(0).draw();
+  }  
+  
   void setActiveButton(int index) {
+    if (buttonMode != BUTTONMODE_MUTEX) {
+      return;
+    }
     println("setActiveButton:", index);
     if (index < children.size()) {
       this.activeButtonIndex = index;
       for (int i=0; i<children.size(); i++) {
-        Button button = (Button)children.get(i);
-        if (this.activeButtonIndex == i) {
-          button.toggleState = true;
-        }
-        else {
-          button.toggleState = false;
+        UIBase c = children.get(i);
+        if (c instanceof Button) {
+          Button button = (Button)c;
+          if (this.activeButtonIndex == i) {
+            button.toggleState = true;
+          }
+          else {
+            button.toggleState = false;
+          }
         }
       }
       recalcLayout();
@@ -523,17 +607,18 @@ class ButtonGroup extends UIBase {
   
   @Override
   void addChild(UIBase child) {
-    Button newButton = (Button)child;
-    int tabIndex = children.size();
-    // Set up the button
-    if (buttonMode == BUTTONMODE_MUTEX || buttonMode == BUTTONMODE_TOGGLE) {
-      newButton.buttonMode = Button.TOGGLE;
-    }
-    else {
-      newButton.buttonMode = Button.TOUCH_DOWN;      
-    }
-    
-    //if (buttonMode == BUTTONMODE_MUTEX) {
+    if (child instanceof Button) {
+      Button newButton = (Button)child;
+      int tabIndex = children.size();
+      // Set up the button
+      if (buttonMode == BUTTONMODE_MUTEX || buttonMode == BUTTONMODE_TOGGLE) {
+        newButton.buttonMode = Button.TOGGLE;
+      }
+      else {
+        newButton.buttonMode = Button.TOUCH_DOWN;      
+      }
+      
+      //if (buttonMode == BUTTONMODE_MUTEX) {
       newButton.setOnPressCallback(new Runnable() {
         public void run() {
           setActiveButton(tabIndex);
@@ -543,7 +628,11 @@ class ButtonGroup extends UIBase {
         }
       });
     //}
-    children.add(newButton);
+      children.add(newButton);
+    }
+    else {
+      children.add(child);
+    }
     recalcLayout();
   }
   
@@ -604,11 +693,11 @@ class Slider extends UIBase {
     drawLabel();
     // this is to allow sending if the slider is changed by one of the 
     // buttons instead of a direct touch event
-    if (value != pValue && oscEnabled) {
-      float mappedValue = rangeMin + value * (rangeMax - rangeMin);
-      queueOscSend(mappedValue, oscId);
-      pValue = value;
-    }
+    //if (value != pValue && oscEnabled) {
+    //  float mappedValue = rangeMin + value * (rangeMax - rangeMin);
+    //  queueOscSend(mappedValue, oscId);
+    //  pValue = value;
+    //}
   }
 
   @Override
@@ -693,14 +782,16 @@ class Slider extends UIBase {
         PVector p = touchPositions[id];
         float range = rangeMax - rangeMin;
         if (this.direction == VERTICAL) {
-          float ny = (p.y - this.bounds.y - vpad*1) / (sliderMaxY-sliderMinY);
-          value = 1.0 - max(0.0, min(1.0, ny));
-          value = forceInteger? ((float)Math.floor(value*range) / range) : value;
+          float ny = 1.0 - (p.y - this.bounds.y - vpad*1) / (sliderMaxY-sliderMinY) * range;
+          setValue(ny);
+          //value = 1.0 - max(0.0, min(1.0, ny));
+          //value = forceInteger? ((float)Math.floor(value*range) / range) : value;
         }
         else {
-          float nx = (p.x - this.bounds.x - hpad*1) / (sliderMaxX-sliderMinX);
-          value = max(0.0, min(1.0, nx));
-          value = forceInteger? ((float)Math.floor(value*range) / range) : value;
+          float nx = (p.x - this.bounds.x - hpad*1) / (sliderMaxX-sliderMinX) * range;
+          setValue(nx);
+          //value = max(0.0, min(1.0, nx));
+          //value = forceInteger? ((float)Math.floor(value*range) / range) : value;
         }
 
         if (value != pValue && oscEnabled) {
@@ -714,6 +805,24 @@ class Slider extends UIBase {
       }
     }
   }
+  
+  public void setValue(Object value) {
+    
+    if (value instanceof Float) {
+      float floatValue = (float)value;
+      float range = rangeMax - rangeMin;
+      floatValue = max(rangeMin, min(rangeMax, floatValue)) / range;
+      //if (this.direction == VERTICAL) {
+      //  floatValue = (rangeMax - max(rangeMin, min(rangeMax, floatValue))) / range;
+      //}
+      //else {
+      //  floatValue = max(rangeMin, min(rangeMax, floatValue)) / range;
+      //}
+      floatValue = forceInteger? ((float)Math.floor(floatValue*range) / range) : floatValue;
+      this.value = floatValue;
+    }
+  }
+
 }
 
 
@@ -721,7 +830,7 @@ class Label extends UIBase {
   public static final int HALIGN_LEFT = 0;
   public static final int HALIGN_CENTER = 1;
   public static final int HALIGN_RIGHT = 2;
-  int halign = 0;
+  int halign = HALIGN_LEFT;
   float textPosX, textPosY;
   public Label(String label) {
     super("label");
@@ -753,9 +862,16 @@ class Label extends UIBase {
       textPosX = bounds.x + bounds.w - pad - textw;
     }
   }
+  
+  @Override
+  void setValue(Object value) {
+    if (value instanceof String) {
+      this.label = (String)value;
+    }
+  }
 }
 
-class DragNumber2 extends UIBase {
+class DragNumberT2 extends UIBase {
   float initialValue;
   float currentValue;
   PVector initialTouchPoint;
@@ -764,7 +880,7 @@ class DragNumber2 extends UIBase {
   float rangeMax = 1.0;
   float sensitivity = 0.1;
  
-  DragNumber2(String oscId, String label) {
+  DragNumberT2(String oscId, String label) {
     super(oscId, UIBase.LAYOUT_HORIZONTAL);
     this.initialValue = 0.0;
     this.currentValue = 0.0;
@@ -772,7 +888,7 @@ class DragNumber2 extends UIBase {
     this.borderVisible = false;
     addChild(new Label(label));
     
-    DragNumberControl2 numCtrl = new DragNumberControl2(oscId);
+    DragNumberControlT2 numCtrl = new DragNumberControlT2(oscId);
     numCtrl.borderVisible = true;    
     addChild(numCtrl);
   }
@@ -786,6 +902,7 @@ class DragNumber extends UIBase {
   float rangeMin = 0.0;
   float rangeMax = 1.0;
   float sensitivity = 0.1;
+  DragNumberControl numCtrl;
  
   DragNumber(String oscId, String label, double value, double rangeMin, double rangeMax) {
     super(oscId, UIBase.LAYOUT_HORIZONTAL);
@@ -795,12 +912,47 @@ class DragNumber extends UIBase {
     this.borderVisible = false;
     addChild(new Label(label));
     
-    DragNumberControl numCtrl = new DragNumberControl(oscId);
+    numCtrl = new DragNumberControl(oscId);
     numCtrl.rangeMin = rangeMin;
     numCtrl.rangeMax = rangeMax;
     numCtrl.currentValue = value;
     numCtrl.borderVisible = false;    
     addChild(numCtrl);
+  }
+}
+
+class DragNumber2 extends UIBase {
+  float initialValue;
+  float currentValue;
+  PVector initialTouchPoint;
+  boolean isAdjusting = false;
+  float rangeMin = 0.0;
+  float rangeMax = 1.0;
+  float sensitivity = 0.1;
+  DragNumberControl numCtrl1;
+  DragNumberControl numCtrl2;
+ 
+  DragNumber2(String oscId1, String oscId2, String label, double value1,
+              double value2, double rangeMin, double rangeMax) {
+    super("", UIBase.LAYOUT_HORIZONTAL);
+    this.initialValue = 0.0;
+    //this.currentValue = 0.0;
+    this.label = label;
+    this.borderVisible = false;
+    addChild(new Label(label));
+    
+    numCtrl1 = new DragNumberControl(oscId1);
+    numCtrl1.rangeMin = rangeMin;
+    numCtrl1.rangeMax = rangeMax;
+    numCtrl1.currentValue = value1;
+    numCtrl1.borderVisible = false;    
+    numCtrl2 = new DragNumberControl(oscId2);
+    numCtrl2.rangeMin = rangeMin;
+    numCtrl2.rangeMax = rangeMax;
+    numCtrl2.currentValue = value2;
+    numCtrl2.borderVisible = false;    
+    addChild(numCtrl1);
+    addChild(numCtrl2);
   }
 }
 
@@ -818,8 +970,8 @@ class DragNumberControl extends UIBase {
   float sensitivity = 0.1;
   int numDecimals = 3;
   int numInts = 5;
-  int precisionIndex = 2;
-  double adjustIncrement = 0.1;
+  int precisionIndex = 1;
+  double adjustIncrement = 1.0;
   Rect[] digitHitboxes;
 
   public DragNumberControl(String oscId) {
@@ -827,6 +979,7 @@ class DragNumberControl extends UIBase {
     this.textColor = color(0, 255,0);
     digitHitboxes = makeDigitHitboxes();
   }
+
 
   void draw() {
     textSize(LARGETEXT*1.5);
@@ -945,11 +1098,48 @@ class DragNumberControl extends UIBase {
   private double quantize(double value, double roundTo) {
       return Math.round(value / roundTo) * roundTo;
   }
-
+  
+  @Override
+  public void setValue(Object value) {
+    println("DragNum setValue: " + (float) value);
+    if (value instanceof Float) {
+      currentValue = (float)value;
+      //currentValue = quantize(currentValue, adjustIncrement);
+      currentValue = Math.max(rangeMin, Math.min(currentValue, rangeMax));
+    }
+  }
 } // END DragNumberControl
 
 
-
+class PresetControl extends UIBase {
+  public PresetControl(String oscId) {
+    super(0, 0, 100, 100, oscId, UIBase.LAYOUT_HORIZONTAL);
+    //this.oscId = oscId;
+    UIBase buttonPanel = new UIBase("buttons", UIBase.LAYOUT_HORIZONTAL);
+      Button prevButton = new Button(oscId+"/prev", Button.TOUCH_DOWN);
+        prevButton.label = "<";
+        prevButton.offTextColor = color(255,255,255);
+        prevButton.oscEnabled = true;
+      Button nextButton = new Button(oscId+"/next", Button.TOUCH_DOWN);
+        nextButton.label = ">";
+        nextButton.offTextColor = color(255,255,255);
+        nextButton.oscEnabled = true;
+      buttonPanel.addChild(prevButton);
+      buttonPanel.addChild(nextButton);
+      buttonPanel.recalcLayout();
+    
+    Label lbl = new Label("<no preset>");
+      lbl.oscId = oscId + "/name";
+      lbl.oscEnabled = true;
+      lbl.textColor = color(0, 255, 0);
+      println("LABEL", lbl.oscId);
+    this.addChild(lbl);
+    this.addChild(new UIBase("spacer"));
+    this.addChild(buttonPanel);
+    recalcLayout();    
+  }
+  
+}
 
 class Touch10 extends UIBase {
   static final int numhandles = 10;
@@ -1058,17 +1248,21 @@ class XYPad extends UIBase {
   public static final int POLAR = 1;
   public static final int KNOB = 2;
   
-  public static final int ORIGIN_BOTTOMRIGHT = 0;
+  public static final int ORIGIN_BOTTOMLEFT = 0;
   public static final int ORIGIN_CENTER = 1;
   
   int coordSys = CARTESIAN;
+  int originMode = ORIGIN_CENTER;
+  Boolean flipX = true;
+  Boolean flipY = true;
+  
 
   PVector pos;
   float tx, ty, ta, tr;
   float ptx, pty;
   color textColor = color(0, 255, 32);
   UIBase buttonPanel;
-
+  Boolean isAdjusting = false;
 
   public XYPad(String oscId, int _coordSys) {
     super(0, 0, 100, 100, oscId, UIBase.LAYOUT_NONE);
@@ -1124,7 +1318,7 @@ class XYPad extends UIBase {
     rect(ctlx, ctly, dim, dim);
 
     PVector p;
-    if (touchIds.size() > 0) {
+    if (isAdjusting && touchIds.size() > 0) {
       int id = touchIds.get(0);
       p = touchPositions[id];
       if (p == null) {
@@ -1142,12 +1336,34 @@ class XYPad extends UIBase {
       float cy = ty - 0.5;
       ta = atan2(cx, cy);
       tr = (float)Math.sqrt(cx*cx+cy*cy);
-      
+
+      if (originMode == ORIGIN_CENTER) {
+          tx = tx * 2.0 - 1.0;
+          ty = ty * 2.0 - 1.0;
+      }
+
       if (ptx != tx || pty != tx) {
-        queueOscSend(tx, oscId+"/x");
-        queueOscSend(ty, oscId+"/y");
-        queueOscSend(ta, oscId+"/a");
-        queueOscSend(tr, oscId+"/r");
+        float sendX=tx, sendY=ty;
+        if (flipX) {
+          if (originMode == ORIGIN_BOTTOMLEFT) {
+            sendX = 1.0 - sendX;
+          }
+          else {
+            sendX *= -1.0;
+          }
+        }
+        if (flipY) {
+          if (originMode == ORIGIN_BOTTOMLEFT) {
+            sendY = 1.0 - sendY;
+          }
+          else {
+            sendY *= -1.0;
+          }
+        }
+        
+        float[] arr = {sendX, sendY, 1.0f, 1.0f, 1.0f};
+        queueOscSendArray(arr, oscId + "/p1");
+        
         ptx = tx;
         pty = ty;
       }
@@ -1156,7 +1372,6 @@ class XYPad extends UIBase {
     else {
       p = this.pos;
     }
-
 
     float dotx = max(ctlx, min(ctlx+dim, p.x));
     float doty = max(ctly, min(ctly+dim, p.y));
@@ -1285,6 +1500,283 @@ class XYPad extends UIBase {
 
     drawGradsX(xstart, mid, yoffset, level + 1, maxLevel, tickDir);
     drawGradsX(mid, xend, yoffset, level + 1, maxLevel, tickDir);
+  }
+  
+    @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    //TouchEvent.Pointer p = getTouchById(id);
+    //if (! this.bounds.containsPoint(p.x, p.y)) {
+    //  return;
+    //}    
+    isAdjusting = true;
+  }
+
+  @Override
+  public void touchEnded(int id) {
+    super.touchEnded(id);
+    isAdjusting = false;
+  }
+
+} // End class XYPad
+
+
+class ColorChooserHSV extends UIBase {
+  private PShader hueRingShader;
+  private PGraphics hueRingPg;
+  float margin = 50;
+  int dim; // = 100.0;
+  float hueHandleAngle = 0.0;
+  float hueRingInnerRadius = 0.7;
+  float hueRingOuterRadius = 0.96;
+  float ssControlOriginX;
+  float ssControlOriginY;
+  float ssControlCenterX;
+  float ssControlCenterY;
+  PVector svHandlePosition = new PVector(0,0);
+  
+  Boolean isAdjustingHue = false;
+  Boolean isAdjustingSV = false;
+  
+  PVector[] svTriangleVerts = new PVector[3];
+  float H=0, S=1, V=1;
+
+  public ColorChooserHSV(String label, int layout) {
+    super(label, layout);
+    this.label = label;
+    hueRingShader = loadShader("hue_ring.glsl");
+  }
+  
+  void updateHSTriangle() {
+    float ang;
+    for (int i=0; i < 3; i++) {
+      ang = hueHandleAngle + i * 2.0*PI / 3.0;
+      svTriangleVerts[i].x = ssControlCenterX + cos(ang) * hueRingInnerRadius * dim/2.0;
+      svTriangleVerts[i].y = ssControlCenterY + sin(ang) * hueRingInnerRadius * dim/2.0;
+    }
+  }
+
+  void drawHSTriangle() {
+    float hue = - hueHandleAngle;
+    hue %= (2.0*PI);
+    hue = (hue < 0)? hue+2.0*PI : hue;
+    hue = (hue >= (2.0*PI))? hue - 2.0*PI : hue;
+    
+    noStroke();
+    colorMode(HSB, 2.0*PI, 100, 100);
+    beginShape(TRIANGLES);
+      fill(hue, 100, 100);
+      vertex(svTriangleVerts[0].x, svTriangleVerts[0].y);
+      fill(0, 0, 100);
+      vertex(svTriangleVerts[1].x, svTriangleVerts[1].y);
+      fill(0, 0, 0);
+      vertex(svTriangleVerts[2].x, svTriangleVerts[2].y);
+    endShape();
+    colorMode(RGB, 255);
+  }
+  
+  @Override
+  void draw() {
+    //super.draw();
+    drawBounds();
+    renderHueRing(hueRingPg);
+    image(hueRingPg, bounds.x+margin, bounds.y+margin, dim, dim);
+    drawHueHandle();
+    drawHSTriangle();
+    
+    fill(255);
+    //ellipse(ssControlOriginX, ssControlOriginY, 30, 30);
+    if(isAdjustingSV) {
+      ellipse(svHandlePosition.x, svHandlePosition.y, 30, 30);
+    }
+    
+    debugDrawColor();
+    
+    //ellipse(ssControlCenterX, ssControlCenterY, 30, 30);
+    textAlign(BASELINE, LEFT);
+    String info = String.format("H=%.2f, S=%.2f, V=%.2f", H, S, V);
+    fill(255);
+    text(info, bounds.x+pad, bounds.y+pad+30);
+  }
+  
+  void renderHueRing(PGraphics g) {
+    float ar = 1.0;
+    g.beginDraw();
+      g.background(59);
+      hueRingShader.set("inner_radius", hueRingInnerRadius);
+      hueRingShader.set("outer_radius", hueRingOuterRadius);
+      g.shader(hueRingShader);
+      g.beginShape(QUADS);
+        g.vertex(0, 0,  0, 0);
+        g.vertex(g.width, 0, ar, 0);
+        g.vertex(g.width, g.height, ar, 1);
+        g.vertex(0, g.height,  0, 1);
+      g.endShape();
+    g.endDraw();
+  }
+  
+  void drawHueHandle() {
+    PVector hueDir = new PVector(cos(hueHandleAngle), sin(hueHandleAngle));
+    float innerX = ssControlCenterX + hueDir.x * hueRingInnerRadius * (dim/2.0);
+    float innerY = ssControlCenterY + hueDir.y * hueRingInnerRadius * (dim/2.0);
+    float outerX = ssControlCenterX + hueDir.x * hueRingOuterRadius * (dim/2.0);
+    float outerY = ssControlCenterY + hueDir.y * hueRingOuterRadius * (dim/2.0);
+    strokeWeight(10);
+    stroke(255);
+    line(innerX, innerY, outerX, outerY);
+  }
+  
+  void debugDrawColor() {
+    float x = bounds.x + margin;
+    float y = bounds.y + margin*2 + dim;
+    float w = dim;
+    float h = 200;
+    colorMode(HSB, 2.0*PI, 1.0, 1.0);
+      fill(H, S, V);
+      rect(x, y, w, h);
+    colorMode(RGB, 255);
+  }
+  
+  @Override
+  void recalcLayout() {
+    super.recalcLayout();
+    println("ColorChooserHSV.recalcLayout(): ", this.bounds.toString());
+    dim = (int) (min(bounds.w, bounds.h) - margin * 2.0);
+    ssControlOriginX = bounds.x + margin;
+    ssControlOriginY = bounds.y + margin;
+    ssControlCenterX = ssControlOriginX + dim / 2.0;
+    ssControlCenterY = ssControlOriginY + dim / 2.0;
+    
+    if (svTriangleVerts[0] == null || svTriangleVerts[1] == null || svTriangleVerts[2] == null) {
+      for (int i=0; i < 3; i++) {
+        svTriangleVerts[i] = new PVector(0.0, 0.0);
+      }
+    }
+    updateHSTriangle();
+
+    if (hueRingPg == null || hueRingPg.width != dim || hueRingPg.height != dim) {
+      hueRingPg = createGraphics(dim, dim, P2D);
+    }
+  }
+  
+    @Override
+  public void touchStarted(int id) {
+    super.touchStarted(id);
+    TouchEvent.Pointer p = getTouchById(id);
+    PVector pv = new PVector(p.x, p.y);
+    PVector c = new PVector(ssControlCenterX, ssControlCenterY);
+    float cdist = c.dist(pv) / (dim/2);
+    
+    if (cdist > hueRingInnerRadius && cdist < hueRingOuterRadius) {
+      isAdjustingHue = true;
+    }
+    else if (triangleContains(pv)) {
+      isAdjustingSV = true;
+    }
+  }
+  
+  @Override
+  public void touchMoved(MotionEvent e) {
+    super.touchMoved(e);
+    if (isAdjustingHue && touchIds.size() > 0) {
+      print("isAdjustingHue");
+      int id = touchIds.get(0);
+      PVector p = touchPositions[id];
+      if (p == null) {
+        print("no position");
+        return;
+      }
+      float tx, ty, ta, tr, cx, cy;
+      tx = (p.x - ssControlCenterX) / dim;
+      ty = (p.y - ssControlCenterY) / dim;
+      tx = max(-1.0, min(1.0, tx));
+      ty = max(-1.0, min(1.0, ty));
+      cx = tx - 0.5;
+      cy = ty - 0.5;
+      ta = atan2(ty, tx);      
+      tr = (float)Math.sqrt(cx*cx+cy*cy);
+      hueHandleAngle = (2.0 * PI + ta); // % (2.0 * PI);
+      H = hueHandleAngle;
+      H %= (2.0*PI);
+      H = (H < 0)? H+2.0*PI : H;
+      H = (H >= (2.0*PI))? H - 2.0*PI : H;
+
+      updateHSTriangle();
+    }
+    else if (isAdjustingSV && touchIds.size() > 0) {
+      print("isAdjustingSV");
+      int id = touchIds.get(0);
+      PVector p = touchPositions[id];
+      if (p == null) {
+        print("no position");
+        return;
+      }
+      if (triangleContains(p)) {
+        svHandlePosition.x = p.x;
+        svHandlePosition.y = p.y;
+      }
+      else {
+        PVector cp = closestPointInTriangle(p, svTriangleVerts);
+          svHandlePosition.x = cp.x;
+          svHandlePosition.y = cp.y; 
+      }
+      PVector bary = computeBarycentric(svHandlePosition, svTriangleVerts);
+      S = 1.0 - bary.y;
+      V = 1.0 - bary.z;
+    }
+  }
+  
+  @Override
+  public void touchEnded(int id) {
+    super.touchEnded(id);
+    isAdjustingHue = false;
+    isAdjustingSV = true;
+
   }  
+
+  Boolean triangleContains(PVector point) {
+      PVector bary = computeBarycentric(point, svTriangleVerts);
+      // Check if the point's barycentric coordinates are within the triangle
+      return bary.x >= 0 && bary.x <= 1 && bary.y >= 0 && bary.y <= 1 && bary.z >= 0 && bary.z <= 1;
+  }
+
+  PVector computeBarycentric(PVector point, PVector[] triangleVerts) {
+    PVector A = triangleVerts[0];
+    PVector B = triangleVerts[1];
+    PVector C = triangleVerts[2];
+  
+    // Using determinant method to calculate areas for barycentric coordinates
+    float detT = (B.y - C.y) * (A.x - C.x) + (C.x - B.x) * (A.y - C.y);
+    float alpha = ((B.y - C.y) * (point.x - C.x) + (C.x - B.x) * (point.y - C.y)) / detT;
+    float beta = ((C.y - A.y) * (point.x - C.x) + (A.x - C.x) * (point.y - C.y)) / detT;
+    float gamma = 1.0f - alpha - beta;
+  
+    return new PVector(alpha, beta, gamma);
+  }
+  
+  PVector closestPointInTriangle(PVector point, PVector[] triangleVerts) {
+    // Compute barycentric coordinates for the point
+    PVector bary = computeBarycentric(point, triangleVerts);
+
+    // Clamp barycentric coordinates to the range [0, 1]
+    float alpha = constrain(bary.x, 0, 1);
+    float beta = constrain(bary.y, 0, 1);
+    float gamma = constrain(bary.z, 0, 1);
+
+    // Normalize the clamped coordinates so they sum to 1
+    float total = alpha + beta + gamma;
+    alpha /= total;
+    beta /= total;
+    gamma /= total;
+
+    // Interpolate back to Cartesian coordinates using the clamped barycentric coordinates
+    PVector A = triangleVerts[0];
+    PVector B = triangleVerts[1];
+    PVector C = triangleVerts[2];
+    float x = alpha * A.x + beta * B.x + gamma * C.x;
+    float y = alpha * A.y + beta * B.y + gamma * C.y;
+
+    return new PVector(x, y);
+  }
 
 }
