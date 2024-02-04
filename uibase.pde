@@ -283,6 +283,26 @@ class UIBase {
   public void setValue(Object value) {
   }
 
+  color hsvToRgb(float h, float s, float v) {
+    float r, g, b;
+
+    int i = (int) Math.floor(h * 6);
+    float f = h * 6 - i;
+    float p = v * (1 - s);
+    float q = v * (1 - f * s);
+    float t = v * (1 - (1 - f) * s);
+
+    switch (i % 6) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        case 5: r = v; g = p; b = q; break;
+        default: throw new IllegalArgumentException("Something went wrong in the HSV to RGB conversion.");
+    }
+    return color(r * 255, g * 255, b * 255);
+  }  
 
 } // End UIBase
 
@@ -558,6 +578,7 @@ class Button extends UIBase {
   public void setOnPressCallback(Runnable callback) {
     this.onPressCallback = callback;
   } 
+   
 }
 
 
@@ -1581,14 +1602,21 @@ class ColorChooserHSV extends UIBase {
     drawBounds();
     renderHueRing(hueRingPg);
     image(hueRingPg, bounds.x+margin, bounds.y+margin, dim, dim);
-    drawHueHandle();
-    drawHSTriangle();
     
-    fill(255);
-    //ellipse(ssControlOriginX, ssControlOriginY, 30, 30);
-    if(isAdjustingSV) {
-      ellipse(svHandlePosition.x, svHandlePosition.y, 30, 30);
+    
+    color currentHueRingColor = hsvToRgb(H/(2.0*PI), 1, 1);
+    Boolean isLight = isColorLight(currentHueRingColor);
+    drawHueHandle(isLight);
+    drawHSTriangle();
+    color currentColor = hsvToRgb(H/(2.0*PI), S, V);
+    isLight = isColorLight(currentColor);
+    if (isLight) {
+      fill(0);
     }
+    else {
+      fill(255);
+    }
+    ellipse(svHandlePosition.x, svHandlePosition.y, 30, 30);
     
     debugDrawColor();
     
@@ -1596,7 +1624,7 @@ class ColorChooserHSV extends UIBase {
     textAlign(BASELINE, LEFT);
     String info = String.format("H=%.2f, S=%.2f, V=%.2f", H, S, V);
     fill(255);
-    text(info, bounds.x+pad, bounds.y+pad+30);
+    text(info, bounds.x+margin, bounds.y+pad+30);
   }
   
   void renderHueRing(PGraphics g) {
@@ -1615,25 +1643,38 @@ class ColorChooserHSV extends UIBase {
     g.endDraw();
   }
   
-  void drawHueHandle() {
+  void drawHueHandle(Boolean isLight) {
     PVector hueDir = new PVector(cos(hueHandleAngle), sin(hueHandleAngle));
     float innerX = ssControlCenterX + hueDir.x * hueRingInnerRadius * (dim/2.0);
     float innerY = ssControlCenterY + hueDir.y * hueRingInnerRadius * (dim/2.0);
     float outerX = ssControlCenterX + hueDir.x * hueRingOuterRadius * (dim/2.0);
     float outerY = ssControlCenterY + hueDir.y * hueRingOuterRadius * (dim/2.0);
     strokeWeight(10);
-    stroke(255);
+    if (isLight) {
+      stroke(0);      
+    }
+    else {
+      stroke(255);
+    }
     line(innerX, innerY, outerX, outerY);
   }
   
   void debugDrawColor() {
-    float x = bounds.x + margin;
-    float y = bounds.y + margin*2 + dim;
-    float w = dim;
-    float h = 200;
+    float bgx = bounds.x + margin;
+    float bgy = bounds.y + margin*2 + dim;
+    float bgw = dim;
+    float bgh = bounds.h - margin*3 - dim;
+    fill(59);
+    rect(bgx, bgy, bgw, bgh);
+    
+    //float 
+    float swatchDim = bgh - margin*2;
+    float sx = bgx + bgw/2 - swatchDim/2;
+    float sy = bgy + bgh/2 - swatchDim/2;
+    
     colorMode(HSB, 2.0*PI, 1.0, 1.0);
       fill(H, S, V);
-      rect(x, y, w, h);
+      rect(sx, sy, swatchDim, swatchDim, 32);
     colorMode(RGB, 255);
   }
   
@@ -1679,7 +1720,7 @@ class ColorChooserHSV extends UIBase {
   public void touchMoved(MotionEvent e) {
     super.touchMoved(e);
     if (isAdjustingHue && touchIds.size() > 0) {
-      print("isAdjustingHue");
+      //print("isAdjustingHue");
       int id = touchIds.get(0);
       PVector p = touchPositions[id];
       if (p == null) {
@@ -1696,15 +1737,16 @@ class ColorChooserHSV extends UIBase {
       ta = atan2(ty, tx);      
       tr = (float)Math.sqrt(cx*cx+cy*cy);
       hueHandleAngle = (2.0 * PI + ta); // % (2.0 * PI);
-      H = hueHandleAngle;
+      H = - hueHandleAngle;
       H %= (2.0*PI);
       H = (H < 0)? H+2.0*PI : H;
       H = (H >= (2.0*PI))? H - 2.0*PI : H;
 
       updateHSTriangle();
+      sendOsc();
     }
     else if (isAdjustingSV && touchIds.size() > 0) {
-      print("isAdjustingSV");
+      //print("isAdjustingSV");
       int id = touchIds.get(0);
       PVector p = touchPositions[id];
       if (p == null) {
@@ -1723,6 +1765,7 @@ class ColorChooserHSV extends UIBase {
       PVector bary = computeBarycentric(svHandlePosition, svTriangleVerts);
       S = 1.0 - bary.y;
       V = 1.0 - bary.z;
+      sendOsc();
     }
   }
   
@@ -1730,9 +1773,34 @@ class ColorChooserHSV extends UIBase {
   public void touchEnded(int id) {
     super.touchEnded(id);
     isAdjustingHue = false;
-    isAdjustingSV = true;
+    isAdjustingSV = false;
 
   }  
+
+  public void sendOsc() {
+    color hsvColor = hsvToRgb(H/(2.0*PI), S, V);
+    float[] arr = new float[3];
+    arr[0] = red(hsvColor) / 255.0; 
+    arr[1] = green(hsvColor) / 255.0; 
+    arr[2] = blue(hsvColor) / 255.0; 
+    queueOscSendArray(arr, oscId);
+  
+  }
+
+
+  boolean isColorLight(color c) {
+    // Extract RGB components
+    float r = red(c) / 255.0;
+    float g = green(c) / 255.0;
+    float b = blue(c) / 255.0;
+
+    // Calculate luminance
+    float luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+    // Determine if the color is light or dark
+    return luminance > 0.5;
+  }
+
 
   Boolean triangleContains(PVector point) {
       PVector bary = computeBarycentric(point, svTriangleVerts);

@@ -57,12 +57,12 @@ void setup() {
     tab2.borderColor = color(10, 255, 10);
     tab2.useDefaultOsc = true;
 
-  UIBase tab21 = new UIBase("/colorchooser", UIBase.LAYOUT_HORIZONTAL);
-    tab21.label = "Color Choosers";
-    ColorChooserHSV color1 = new ColorChooserHSV("color1", UIBase.LAYOUT_HORIZONTAL);
+  UIBase tab21 = new UIBase("tab2.1", UIBase.LAYOUT_HORIZONTAL);
+    tab21.label = "Color";
+    ColorChooserHSV color1 = new ColorChooserHSV("/colorhsv1/rgb", UIBase.LAYOUT_HORIZONTAL);
     color1.label = "Color 1";
     color1.borderVisible = true;
-    ColorChooserHSV color2 = new ColorChooserHSV("Color 2", UIBase.LAYOUT_HORIZONTAL);
+    ColorChooserHSV color2 = new ColorChooserHSV("/colorhsv2/rgb", UIBase.LAYOUT_HORIZONTAL);
     color2.label = "Color 2";
     color2.borderVisible = true;
     UIBase spacer = new UIBase("spacer", UIBase.LAYOUT_HORIZONTAL);
@@ -545,8 +545,8 @@ void queueOscSendArray(final float[] val1, final String oscid) {
 
 void oscSendArray(float[] val1, String oscid) {
   String fullOscId = String.format("%s%s", OSCID_BASE, oscid);
-  //println(String.format("eos_touchcontrol.oscSendArray(): %s ==> float[%d]",
-  //                      fullOscId, val1.length));
+  println(String.format("eos_touchcontrol.oscSendArray(): %s ==> float[%d]",
+                        fullOscId, val1.length));
   OscMessage msg = new OscMessage(fullOscId);
   msg.add(val1);
   oscP5.send(msg, heliosServerAddr);
